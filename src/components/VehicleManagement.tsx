@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { Plus, Search, Edit, Eye, Power } from 'lucide-react';
+import { Plus, Search, Edit, Eye, Power, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import VehicleHealthIndicator from './VehicleHealthIndicator';
+import VehicleDetailDashboard from './VehicleDetailDashboard';
 
 const VehicleManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
 
   // Mock vehicle data
   const vehicles = [
@@ -86,6 +88,25 @@ const VehicleManagement = () => {
     };
     return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
   };
+
+  // If a vehicle is selected, show detailed dashboard
+  if (selectedVehicle) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setSelectedVehicle(null)}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Daftar
+          </Button>
+        </div>
+        <VehicleDetailDashboard vehicle={selectedVehicle} />
+      </div>
+    );
+  }
 
   const VehicleForm = () => (
     <Card>
@@ -269,6 +290,13 @@ const VehicleManagement = () => {
                       <Badge className={getDocumentStatusBadge(vehicle.statusDokumen)}>
                         {vehicle.statusDokumen}
                       </Badge>
+                      <VehicleHealthIndicator
+                        vehicleId={vehicle.id.toString()}
+                        kmTempuh={48500}
+                        tahunPembuatan={vehicle.tahunPembuatan}
+                        lastServiceDays={30}
+                        totalPerbaikan={8}
+                      />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-gray-600">
                       <div>
@@ -295,41 +323,13 @@ const VehicleManagement = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Detail Kendaraan - {vehicle.platNomor}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label className="font-semibold">Informasi Umum</Label>
-                              <div className="mt-2 space-y-1 text-sm">
-                                <div>Plat Nomor: {vehicle.platNomor}</div>
-                                <div>Jenis: {vehicle.jenisKendaraan}</div>
-                                <div>Merek: {vehicle.merek}</div>
-                                <div>Model: {vehicle.model}</div>
-                                <div>Tahun: {vehicle.tahunPembuatan}</div>
-                              </div>
-                            </div>
-                            <div>
-                              <Label className="font-semibold">Status & Lokasi</Label>
-                              <div className="mt-2 space-y-1 text-sm">
-                                <div>Status: {vehicle.status}</div>
-                                <div>Status Dokumen: {vehicle.statusDokumen}</div>
-                                <div>Lokasi Pool: {vehicle.lokasiPool}</div>
-                                <div>Servis Berikutnya: {vehicle.servisBerikutnya}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedVehicle(vehicle)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4" />
                     </Button>
