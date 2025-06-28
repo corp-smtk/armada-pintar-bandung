@@ -1,54 +1,7 @@
 
 import { useToast } from '@/hooks/use-toast';
-
-// Interface untuk reminder configuration
-export interface ReminderConfig {
-  id: string;
-  title: string;
-  type: 'service' | 'document' | 'insurance' | 'custom';
-  vehicle: string;
-  document?: string;
-  triggerDate: string;
-  daysBeforeAlert: number[];
-  channels: ('email' | 'telegram')[];
-  recipients: string[];
-  messageTemplate: string;
-  isRecurring: boolean;
-  recurringInterval?: number;
-  recurringUnit?: 'week' | 'month' | 'year';
-  status: 'active' | 'paused' | 'expired';
-}
-
-// Interface untuk delivery log
-export interface DeliveryLog {
-  id: string;
-  reminderId: string;
-  reminderTitle: string;
-  recipient: string;
-  channel: 'email' | 'telegram';
-  status: 'delivered' | 'failed' | 'pending';
-  sentAt: string;
-  deliveredAt?: string;
-  subject?: string;
-  message: string;
-  attempts: number;
-  errorMessage?: string;
-}
-
-// Configuration yang perlu diganti sesuai environment
-const EMAIL_CONFIG = {
-  smtpHost: 'smtp.gmail.com', // GANTI: SMTP server Anda
-  smtpPort: 587,
-  smtpUsername: 'your-email@gmail.com', // GANTI: Email username
-  smtpPassword: 'your-app-password', // GANTI: App password
-  fromEmail: 'fleet@yourcompany.com', // GANTI: Email pengirim
-  fromName: 'Fleet Management System'
-};
-
-const TELEGRAM_CONFIG = {
-  botToken: 'YOUR_BOT_TOKEN_HERE', // GANTI: Token dari @BotFather
-  apiUrl: 'https://api.telegram.org/bot'
-};
+import { localStorageService, ReminderConfig, DeliveryLog } from '@/services/LocalStorageService';
+import emailjs from '@emailjs/browser';
 
 class ReminderService {
   private toast: any;
@@ -63,30 +16,11 @@ class ReminderService {
 
   // Fungsi untuk mengecek reminder yang perlu dikirim hari ini
   async checkDailyReminders(): Promise<ReminderConfig[]> {
-    // TODO: Implement logic untuk query database/storage
-    // Sementara return mock data
-    const mockReminders: ReminderConfig[] = [
-      {
-        id: '1',
-        title: 'Service Rutin - B 1234 AB',
-        type: 'service',
-        vehicle: 'B 1234 AB',
-        triggerDate: '2025-01-15',
-        daysBeforeAlert: [30, 14, 7, 1],
-        channels: ['email', 'telegram'],
-        recipients: ['fleet@company.com', '@johndoe'],
-        messageTemplate: 'Kendaraan {vehicle} perlu service dalam {days} hari. Jadwal: {date}',
-        isRecurring: true,
-        recurringInterval: 3,
-        recurringUnit: 'month',
-        status: 'active'
-      }
-    ];
-
+    const allReminders = localStorageService.getReminderConfigs();
     const today = new Date();
     const remindersToSend: ReminderConfig[] = [];
 
-    for (const reminder of mockReminders) {
+    for (const reminder of allReminders) {
       if (reminder.status !== 'active') continue;
 
       const triggerDate = new Date(reminder.triggerDate);
@@ -101,7 +35,7 @@ class ReminderService {
     return remindersToSend;
   }
 
-  // Fungsi untuk mengirim email
+  // Fungsi untuk mengirim email menggunakan EmailJS
   async sendEmail(
     recipient: string, 
     subject: string, 
@@ -109,34 +43,38 @@ class ReminderService {
     reminderId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // TODO: Implement actual email sending
-      // Menggunakan nodemailer atau service email lainnya
+      const emailSettings = localStorageService.getEmailSettings();
       
-      // Simulasi pengiriman email
-      console.log('Sending email:', {
-        to: recipient,
+      if (!emailSettings.enabled || !emailSettings.serviceId || !emailSettings.templateId || !emailSettings.publicKey) {
+        throw new Error('Email configuration not complete');
+      }
+
+      const templateParams = {
+        to_email: recipient,
+        to_name: recipient.split('@')[0], // Simple name extraction
         subject: subject,
-        body: message,
-        from: EMAIL_CONFIG.fromEmail
+        message: message,
+        from_name: emailSettings.fromName,
+        from_email: emailSettings.fromEmail
+      };
+
+      await emailjs.send(
+        emailSettings.serviceId,
+        emailSettings.templateId,
+        templateParams,
+        emailSettings.publicKey
+      );
+
+      await this.logDelivery({
+        reminderId,
+        recipient,
+        channel: 'email',
+        status: 'delivered',
+        subject,
+        message
       });
 
-      // Simulasi delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Simulasi success rate 90%
-      if (Math.random() > 0.1) {
-        await this.logDelivery({
-          reminderId,
-          recipient,
-          channel: 'email',
-          status: 'delivered',
-          subject,
-          message
-        });
-        return { success: true };
-      } else {
-        throw new Error('SMTP connection failed');
-      }
+      return { success: true };
     } catch (error: any) {
       await this.logDelivery({
         reminderId,
@@ -145,9 +83,9 @@ class ReminderService {
         status: 'failed',
         subject,
         message,
-        errorMessage: error.message
+        errorMessage: error.text || error.message
       });
-      return { success: false, error: error.message };
+      return { success: false, error: error.text || error.message };
     }
   }
 
@@ -158,33 +96,40 @@ class ReminderService {
     reminderId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // TODO: Implement actual Telegram API call
+      const telegramSettings = localStorageService.getTelegramSettings();
       
-      const telegramMessage = {
-        chat_id: recipient.startsWith('@') ? recipient : recipient,
-        text: message,
-        parse_mode: 'Markdown'
-      };
-
-      // Simulasi API call ke Telegram
-      console.log('Sending telegram message:', telegramMessage);
-
-      // Simulasi delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Simulasi success rate 95%
-      if (Math.random() > 0.05) {
-        await this.logDelivery({
-          reminderId,
-          recipient,
-          channel: 'telegram',
-          status: 'delivered',
-          message
-        });
-        return { success: true };
-      } else {
-        throw new Error('Telegram API rate limit exceeded');
+      if (!telegramSettings.enabled || !telegramSettings.botToken) {
+        throw new Error('Telegram configuration not complete');
       }
+
+      const chatId = recipient.startsWith('@') ? recipient : recipient;
+      
+      const response = await fetch(`https://api.telegram.org/bot${telegramSettings.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'Markdown'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.description || 'Telegram API error');
+      }
+
+      await this.logDelivery({
+        reminderId,
+        recipient,
+        channel: 'telegram',
+        status: 'delivered',
+        message
+      });
+
+      return { success: true };
     } catch (error: any) {
       await this.logDelivery({
         reminderId,
@@ -265,28 +210,28 @@ class ReminderService {
     message: string;
     errorMessage?: string;
   }): Promise<void> {
-    // TODO: Implement actual logging to database/storage
+    const reminderConfigs = localStorageService.getReminderConfigs();
+    const reminder = reminderConfigs.find(r => r.id === logData.reminderId);
     
     const deliveryLog: DeliveryLog = {
-      id: Date.now().toString(),
-      reminderTitle: 'Reminder Title', // TODO: Get from reminder data
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      reminderTitle: reminder?.title || 'Unknown Reminder',
       sentAt: new Date().toISOString(),
       deliveredAt: logData.status === 'delivered' ? new Date().toISOString() : undefined,
-      attempts: 1, // TODO: Implement retry logic
+      attempts: 1,
       ...logData
     };
 
-    console.log('Delivery log:', deliveryLog);
-    
-    // TODO: Save to database or localStorage
-    // await saveDeliveryLog(deliveryLog);
+    localStorageService.addDeliveryLog(deliveryLog);
   }
 
   // Fungsi untuk test koneksi email
   async testEmailConnection(): Promise<{ success: boolean; error?: string }> {
+    const emailSettings = localStorageService.getEmailSettings();
+    
     try {
       const testResult = await this.sendEmail(
-        EMAIL_CONFIG.fromEmail,
+        emailSettings.fromEmail,
         'Test Email Connection',
         'This is a test email from Fleet Management System.',
         'test'
@@ -324,6 +269,39 @@ class ReminderService {
     }
     
     console.log(`Daily check completed. Processed ${remindersToSend.length} reminders.`);
+  }
+
+  // Get reminder configs
+  getReminderConfigs(): ReminderConfig[] {
+    return localStorageService.getReminderConfigs();
+  }
+
+  // Add reminder config
+  addReminderConfig(config: Omit<ReminderConfig, 'id' | 'createdAt' | 'updatedAt'>): ReminderConfig {
+    const newConfig: ReminderConfig = {
+      ...config,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    localStorageService.addReminderConfig(newConfig);
+    return newConfig;
+  }
+
+  // Update reminder config
+  updateReminderConfig(id: string, updates: Partial<ReminderConfig>): void {
+    localStorageService.updateReminderConfig(id, updates);
+  }
+
+  // Delete reminder config
+  deleteReminderConfig(id: string): void {
+    localStorageService.deleteReminderConfig(id);
+  }
+
+  // Get delivery logs
+  getDeliveryLogs(): DeliveryLog[] {
+    return localStorageService.getDeliveryLogs();
   }
 }
 

@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { ArrowLeft, Mail, MessageCircle, TestTube, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Mail, MessageCircle, TestTube, Eye, EyeOff, Download, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { localStorageService, EmailSettings, TelegramSettings, GeneralSettings } from '@/services/LocalStorageService';
+import emailjs from '@emailjs/browser';
 
 interface ReminderSettingsProps {
   onBack: () => void;
@@ -21,64 +22,167 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
   const [testingEmail, setTestingEmail] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
 
-  // Mock current settings - Ini yang perlu diganti dengan data real
-  const [emailSettings, setEmailSettings] = useState({
-    enabled: true,
-    smtpHost: 'smtp.gmail.com', // GANTI: SMTP server Anda
-    smtpPort: '587',
-    smtpSecurity: 'tls',
-    smtpUsername: 'your-email@gmail.com', // GANTI: Email username
-    smtpPassword: 'your-app-password', // GANTI: App password atau SMTP password
-    fromEmail: 'fleet@yourcompany.com', // GANTI: Email pengirim
-    fromName: 'Fleet Management System'
-  });
-
-  const [telegramSettings, setTelegramSettings] = useState({
-    enabled: true,
-    botToken: 'YOUR_BOT_TOKEN_HERE', // GANTI: Token bot Telegram dari @BotFather
-    chatId: 'YOUR_CHAT_ID_HERE', // GANTI: Chat ID untuk testing
-    webhookUrl: '' // Optional untuk webhook
-  });
-
-  const [generalSettings, setGeneralSettings] = useState({
-    timezone: 'Asia/Jakarta',
-    dailyCheckTime: '08:00',
-    maxRetryAttempts: 3,
-    retryInterval: 60, // dalam menit
-    enableAutoRetry: true,
-    enableDeliveryReports: true
-  });
+  // Load settings from localStorage
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>(() => 
+    localStorageService.getEmailSettings()
+  );
+  const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>(() => 
+    localStorageService.getTelegramSettings()
+  );
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(() => 
+    localStorageService.getGeneralSettings()
+  );
 
   const handleTestEmail = async () => {
+    if (!emailSettings.serviceId || !emailSettings.templateId || !emailSettings.publicKey) {
+      toast({
+        title: "Configuration Missing",
+        description: "Please fill in all EmailJS configuration fields first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setTestingEmail(true);
-    // Simulasi test email
-    setTimeout(() => {
-      setTestingEmail(false);
+    try {
+      await emailjs.send(
+        emailSettings.serviceId,
+        emailSettings.templateId,
+        {
+          to_email: emailSettings.fromEmail,
+          to_name: 'Test User',
+          subject: 'Test Email dari Fleet Management System',
+          message: 'Ini adalah test email untuk memastikan konfigurasi SMTP berfungsi dengan baik.',
+          from_name: emailSettings.fromName,
+          from_email: emailSettings.fromEmail
+        },
+        emailSettings.publicKey
+      );
+
       toast({
         title: "Test Email Sent",
         description: "Test email berhasil dikirim. Periksa inbox Anda.",
       });
-    }, 2000);
+    } catch (error: any) {
+      toast({
+        title: "Test Email Failed",
+        description: `Gagal mengirim test email: ${error.text || error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setTestingEmail(false);
+    }
   };
 
   const handleTestTelegram = async () => {
-    setTestingTelegram(true);
-    // Simulasi test telegram
-    setTimeout(() => {
-      setTestingTelegram(false);
+    if (!telegramSettings.botToken || !telegramSettings.chatId) {
       toast({
-        title: "Test Telegram Sent",
-        description: "Test message berhasil dikirim ke Telegram.",
+        title: "Configuration Missing",
+        description: "Please fill in Bot Token and Chat ID first.",
+        variant: "destructive"
       });
-    }, 2000);
+      return;
+    }
+
+    setTestingTelegram(true);
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${telegramSettings.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: telegramSettings.chatId,
+          text: '🤖 Test message dari Fleet Management System!\n\nKonfigurasi Telegram bot berhasil!',
+          parse_mode: 'Markdown'
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Test Telegram Sent",
+          description: "Test message berhasil dikirim ke Telegram.",
+        });
+      } else {
+        const error = await response.json();
+        throw new Error(error.description || 'Unknown error');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Test Telegram Failed",
+        description: `Gagal mengirim test telegram: ${error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setTestingTelegram(false);
+    }
   };
 
   const saveSettings = () => {
-    // TODO: Implement save to backend/localStorage
+    localStorageService.saveEmailSettings(emailSettings);
+    localStorageService.saveTelegramSettings(telegramSettings);
+    localStorageService.saveGeneralSettings(generalSettings);
+    
     toast({
       title: "Settings Saved",
       description: "Pengaturan reminder berhasil disimpan.",
     });
+  };
+
+  const exportSettings = () => {
+    try {
+      const data = localStorageService.exportData();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fleet-reminder-settings-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Settings Exported",
+        description: "Pengaturan berhasil di-export ke file JSON.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Gagal mengexport pengaturan.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const importSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        localStorageService.importData(content);
+        
+        // Reload settings
+        setEmailSettings(localStorageService.getEmailSettings());
+        setTelegramSettings(localStorageService.getTelegramSettings());
+        setGeneralSettings(localStorageService.getGeneralSettings());
+        
+        toast({
+          title: "Settings Imported",
+          description: "Pengaturan berhasil di-import.",
+        });
+      } catch (error) {
+        toast({
+          title: "Import Failed",
+          description: "File import tidak valid.",
+          variant: "destructive"
+        });
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -89,6 +193,19 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
           Kembali
         </Button>
         <h1 className="text-3xl font-bold text-gray-900">Pengaturan Reminder</h1>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={exportSettings} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+          <label className="cursor-pointer">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <input type="file" accept=".json" onChange={importSettings} className="hidden" />
+          </label>
+        </div>
       </div>
 
       {/* Connection Status */}
@@ -100,11 +217,11 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                 <Mail className="h-8 w-8 text-blue-600" />
                 <div>
                   <h3 className="font-semibold">Email Service</h3>
-                  <p className="text-sm text-gray-600">SMTP Configuration</p>
+                  <p className="text-sm text-gray-600">EmailJS Configuration</p>
                 </div>
               </div>
-              <Badge className={emailSettings.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                {emailSettings.enabled ? 'Connected' : 'Disconnected'}
+              <Badge className={emailSettings.enabled && emailSettings.serviceId ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                {emailSettings.enabled && emailSettings.serviceId ? 'Configured' : 'Not Configured'}
               </Badge>
             </div>
           </CardContent>
@@ -120,8 +237,8 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                   <p className="text-sm text-gray-600">Bot Integration</p>
                 </div>
               </div>
-              <Badge className={telegramSettings.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                {telegramSettings.enabled ? 'Connected' : 'Disconnected'}
+              <Badge className={telegramSettings.enabled && telegramSettings.botToken ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                {telegramSettings.enabled && telegramSettings.botToken ? 'Configured' : 'Not Configured'}
               </Badge>
             </div>
           </CardContent>
@@ -142,8 +259,8 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
               <TabsContent value="email" className="mt-0 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold">Konfigurasi Email SMTP</h3>
-                    <p className="text-sm text-gray-600">Pengaturan server email untuk mengirim reminder</p>
+                    <h3 className="text-lg font-semibold">Konfigurasi EmailJS</h3>
+                    <p className="text-sm text-gray-600">Setup EmailJS untuk mengirim email reminder</p>
                   </div>
                   <Switch
                     checked={emailSettings.enabled}
@@ -152,58 +269,43 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">📧 Kredensial yang Perlu Diisi:</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>SMTP Host:</strong> Server SMTP Anda (contoh: smtp.gmail.com, smtp.outlook.com)</li>
-                    <li>• <strong>Username & Password:</strong> Kredensial email atau App Password</li>
-                    <li>• <strong>Port:</strong> 587 (TLS) atau 465 (SSL)</li>
-                  </ul>
+                  <h4 className="font-semibold text-blue-900 mb-2">📧 Setup EmailJS:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Daftar di <a href="https://emailjs.com" target="_blank" className="underline">EmailJS.com</a></li>
+                    <li>Buat Email Service (Gmail, Outlook, dll)</li>
+                    <li>Buat Email Template dengan variables: to_email, to_name, subject, message, from_name</li>
+                    <li>Copy Service ID, Template ID, dan Public Key</li>
+                  </ol>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="smtpHost">SMTP Host *</Label>
+                    <Label htmlFor="serviceId">Service ID *</Label>
                     <Input
-                      id="smtpHost"
-                      value={emailSettings.smtpHost}
-                      onChange={(e) => setEmailSettings({ ...emailSettings, smtpHost: e.target.value })}
-                      placeholder="smtp.gmail.com"
+                      id="serviceId"
+                      value={emailSettings.serviceId}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, serviceId: e.target.value })}
+                      placeholder="service_xxxxxxx"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="smtpPort">SMTP Port *</Label>
-                    <Select
-                      value={emailSettings.smtpPort}
-                      onValueChange={(value) => setEmailSettings({ ...emailSettings, smtpPort: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="587">587 (TLS)</SelectItem>
-                        <SelectItem value="465">465 (SSL)</SelectItem>
-                        <SelectItem value="25">25 (Plain)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpUsername">Username/Email *</Label>
+                    <Label htmlFor="templateId">Template ID *</Label>
                     <Input
-                      id="smtpUsername"
-                      value={emailSettings.smtpUsername}
-                      onChange={(e) => setEmailSettings({ ...emailSettings, smtpUsername: e.target.value })}
-                      placeholder="your-email@gmail.com"
+                      id="templateId"
+                      value={emailSettings.templateId}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, templateId: e.target.value })}
+                      placeholder="template_xxxxxxx"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="smtpPassword">Password *</Label>
+                    <Label htmlFor="publicKey">Public Key *</Label>
                     <div className="relative">
                       <Input
-                        id="smtpPassword"
+                        id="publicKey"
                         type={showPassword ? 'text' : 'password'}
-                        value={emailSettings.smtpPassword}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, smtpPassword: e.target.value })}
-                        placeholder="App Password"
+                        value={emailSettings.publicKey}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, publicKey: e.target.value })}
+                        placeholder="Your Public Key"
                       />
                       <Button
                         type="button"
@@ -225,7 +327,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                       placeholder="fleet@yourcompany.com"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="fromName">From Name</Label>
                     <Input
                       id="fromName"
@@ -247,10 +349,11 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
               </TabsContent>
 
               <TabsContent value="telegram" className="mt-0 space-y-6">
+                
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-semibold">Konfigurasi Telegram Bot</h3>
-                    <p className="text-sm text-gray-600">Pengaturan bot Telegram untuk mengirim reminder</p>
+                    <p className="text-sm text-gray-600">Setup bot Telegram untuk mengirim reminder</p>
                   </div>
                   <Switch
                     checked={telegramSettings.enabled}
@@ -278,9 +381,6 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                       onChange={(e) => setTelegramSettings({ ...telegramSettings, botToken: e.target.value })}
                       placeholder="123456789:ABCDefGhIJKLMnoPQRSTUVWXYZ"
                     />
-                    <p className="text-xs text-gray-500">
-                      Dapatkan dari @BotFather setelah membuat bot
-                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="chatId">Default Chat ID</Label>
@@ -290,21 +390,6 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                       onChange={(e) => setTelegramSettings({ ...telegramSettings, chatId: e.target.value })}
                       placeholder="-123456789 atau 123456789"
                     />
-                    <p className="text-xs text-gray-500">
-                      Chat ID untuk testing. Bisa group (-123456789) atau personal (123456789)
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="webhookUrl">Webhook URL (Optional)</Label>
-                    <Input
-                      id="webhookUrl"
-                      value={telegramSettings.webhookUrl}
-                      onChange={(e) => setTelegramSettings({ ...telegramSettings, webhookUrl: e.target.value })}
-                      placeholder="https://yourapp.com/telegram/webhook"
-                    />
-                    <p className="text-xs text-gray-500">
-                      Untuk receive updates dari Telegram (opsional)
-                    </p>
                   </div>
                 </div>
 
@@ -319,6 +404,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
               </TabsContent>
 
               <TabsContent value="general" className="mt-0 space-y-6">
+                
                 <div>
                   <h3 className="text-lg font-semibold">Pengaturan Umum</h3>
                   <p className="text-sm text-gray-600">Konfigurasi umum sistem reminder</p>
@@ -348,53 +434,6 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                       type="time"
                       value={generalSettings.dailyCheckTime}
                       onChange={(e) => setGeneralSettings({ ...generalSettings, dailyCheckTime: e.target.value })}
-                    />
-                    <p className="text-xs text-gray-500">Waktu sistem mengecek reminder yang perlu dikirim</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxRetryAttempts">Max Retry Attempts</Label>
-                    <Input
-                      id="maxRetryAttempts"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={generalSettings.maxRetryAttempts}
-                      onChange={(e) => setGeneralSettings({ ...generalSettings, maxRetryAttempts: parseInt(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="retryInterval">Retry Interval (menit)</Label>
-                    <Input
-                      id="retryInterval"
-                      type="number"
-                      min="5"
-                      max="1440"
-                      value={generalSettings.retryInterval}
-                      onChange={(e) => setGeneralSettings({ ...generalSettings, retryInterval: parseInt(e.target.value) })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-semibold">Auto Retry pada Kegagalan</h4>
-                      <p className="text-sm text-gray-600">Otomatis coba kirim ulang jika gagal</p>
-                    </div>
-                    <Switch
-                      checked={generalSettings.enableAutoRetry}
-                      onCheckedChange={(checked) => setGeneralSettings({ ...generalSettings, enableAutoRetry: checked })}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-semibold">Delivery Reports</h4>
-                      <p className="text-sm text-gray-600">Simpan log detail pengiriman</p>
-                    </div>
-                    <Switch
-                      checked={generalSettings.enableDeliveryReports}
-                      onCheckedChange={(checked) => setGeneralSettings({ ...generalSettings, enableDeliveryReports: checked })}
                     />
                   </div>
                 </div>
