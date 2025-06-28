@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   Truck, 
@@ -18,6 +17,7 @@ import VehicleManagement from '@/components/VehicleManagement';
 import DocumentManagement from '@/components/DocumentManagement';
 import MaintenanceManagement from '@/components/MaintenanceManagement';
 import CostReporting from '@/components/CostReporting';
+import ReminderManagement from '@/components/ReminderManagement';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -204,6 +204,8 @@ const Index = () => {
         return <MaintenanceManagement />;
       case 'costs':
         return <CostReporting />;
+      case 'reminders':
+        return <ReminderManagement />;
       default:
         return renderDashboard();
     }
