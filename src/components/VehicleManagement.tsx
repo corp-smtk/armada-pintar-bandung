@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Eye, Power, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,62 +7,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { localStorageService, Vehicle } from '@/services/LocalStorageService';
 import VehicleHealthIndicator from './VehicleHealthIndicator';
 import VehicleDetailDashboard from './VehicleDetailDashboard';
 
 const VehicleManagement = () => {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [formData, setFormData] = useState<Partial<Vehicle>>({});
+  const { toast } = useToast();
 
-  // Mock vehicle data
-  const vehicles = [
-    {
-      id: 1,
-      platNomor: 'B 1234 AB',
-      jenisKendaraan: 'Truk',
-      merek: 'Mitsubishi',
-      model: 'Canter',
-      tahunPembuatan: 2020,
-      kapasitasMusatan: '3 Ton',
-      jenisBahanBakar: 'Solar',
-      status: 'Aktif',
-      statusDokumen: 'Lengkap',
-      servisBerikutnya: '2024-08-15',
-      lokasiPool: 'Pool Utama Bandung'
-    },
-    {
-      id: 2,
-      platNomor: 'B 5678 CD',
-      jenisKendaraan: 'Pickup',
-      merek: 'Toyota',
-      model: 'Hilux',
-      tahunPembuatan: 2019,
-      kapasitasMusatan: '1 Ton',
-      jenisBahanBakar: 'Bensin',
-      status: 'Aktif',
-      statusDokumen: 'Ada yang Kadaluarsa',
-      servisBerikutnya: '2024-07-20',
-      lokasiPool: 'Pool Utama Bandung'
-    },
-    {
-      id: 3,
-      platNomor: 'B 9101 EF',
-      jenisKendaraan: 'Truk',
-      merek: 'Isuzu',
-      model: 'Elf',
-      tahunPembuatan: 2018,
-      kapasitasMusatan: '2.5 Ton',
-      jenisBahanBakar: 'Solar',
-      status: 'Dalam Perbaikan',
-      statusDokumen: 'Lengkap',
-      servisBerikutnya: '2024-09-10',
-      lokasiPool: 'Pool Utama Bandung'
-    }
-  ];
+  // Load vehicles on component mount
+  useEffect(() => {
+    loadVehicles();
+    // Initialize sample data if empty
+    localStorageService.initializeSampleData();
+  }, []);
+
+  const loadVehicles = () => {
+    const loadedVehicles = localStorageService.getVehicles();
+    setVehicles(loadedVehicles);
+  };
 
   const filteredVehicles = vehicles.filter(vehicle => {
     const matchesSearch = vehicle.platNomor.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,6 +43,102 @@ const VehicleManagement = () => {
                          vehicle.jenisKendaraan.toLowerCase() === filterType.toLowerCase();
     return matchesSearch && matchesFilter;
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.platNomor || !formData.jenisKendaraan || !formData.merek || !formData.model || 
+        !formData.tahunPembuatan || !formData.nomorRangka || !formData.nomorMesin || 
+        !formData.jenisBahanBakar || !formData.tanggalPerolehan || !formData.statusKepemilikan || 
+        !formData.lokasiPool) {
+      toast({
+        title: "Error",
+        description: "Mohon lengkapi semua field yang wajib diisi",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const vehicleData = {
+        ...formData,
+        status: formData.status || 'Aktif',
+        statusDokumen: 'Belum Diverifikasi'
+      } as Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
+
+      if (editingVehicle) {
+        localStorageService.updateVehicle(editingVehicle.id, vehicleData);
+        toast({
+          title: "Berhasil",
+          description: "Data kendaraan berhasil diperbarui"
+        });
+      } else {
+        localStorageService.addVehicle(vehicleData);
+        toast({
+          title: "Berhasil",
+          description: "Kendaraan baru berhasil ditambahkan"
+        });
+      }
+
+      loadVehicles();
+      resetForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan data kendaraan",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setFormData(vehicle);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = (vehicle: Vehicle) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus kendaraan ${vehicle.platNomor}? Data terkait seperti dokumen, perawatan, dan biaya juga akan terhapus.`)) {
+      try {
+        localStorageService.deleteVehicle(vehicle.id);
+        loadVehicles();
+        toast({
+          title: "Berhasil",
+          description: "Kendaraan berhasil dihapus"
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Gagal menghapus kendaraan",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleToggleStatus = (vehicle: Vehicle) => {
+    const newStatus = vehicle.status === 'Aktif' ? 'Tidak Aktif' : 'Aktif';
+    try {
+      localStorageService.updateVehicle(vehicle.id, { status: newStatus });
+      loadVehicles();
+      toast({
+        title: "Berhasil",
+        description: `Status kendaraan berhasil diubah menjadi ${newStatus}`
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mengubah status kendaraan",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({});
+    setEditingVehicle(null);
+    setShowAddForm(false);
+  };
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
@@ -84,7 +152,8 @@ const VehicleManagement = () => {
   const getDocumentStatusBadge = (status: string) => {
     const statusColors = {
       'Lengkap': 'bg-green-100 text-green-800',
-      'Ada yang Kadaluarsa': 'bg-red-100 text-red-800'
+      'Ada yang Kadaluarsa': 'bg-red-100 text-red-800',
+      'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800'
     };
     return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
   };
@@ -111,121 +180,179 @@ const VehicleManagement = () => {
   const VehicleForm = () => (
     <Card>
       <CardHeader>
-        <CardTitle>Tambah Kendaraan Baru</CardTitle>
+        <CardTitle>{editingVehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan Baru'}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="platNomor">Nomor Plat *</Label>
-            <Input id="platNomor" placeholder="B 1234 AB" />
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="platNomor">Nomor Plat *</Label>
+              <Input 
+                id="platNomor" 
+                placeholder="B 1234 AB" 
+                value={formData.platNomor || ''}
+                onChange={(e) => setFormData({...formData, platNomor: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jenisKendaraan">Jenis Kendaraan *</Label>
+              <Select value={formData.jenisKendaraan || ''} onValueChange={(value) => setFormData({...formData, jenisKendaraan: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih jenis kendaraan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Truk">Truk</SelectItem>
+                  <SelectItem value="Pickup">Pickup</SelectItem>
+                  <SelectItem value="Van">Van</SelectItem>
+                  <SelectItem value="Motor">Motor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="merek">Merek *</Label>
+              <Select value={formData.merek || ''} onValueChange={(value) => setFormData({...formData, merek: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih merek" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Toyota">Toyota</SelectItem>
+                  <SelectItem value="Mitsubishi">Mitsubishi</SelectItem>
+                  <SelectItem value="Isuzu">Isuzu</SelectItem>
+                  <SelectItem value="Daihatsu">Daihatsu</SelectItem>
+                  <SelectItem value="Honda">Honda</SelectItem>
+                  <SelectItem value="Suzuki">Suzuki</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="model">Model *</Label>
+              <Input 
+                id="model" 
+                placeholder="Hilux, Canter, Elf, dll." 
+                value={formData.model || ''}
+                onChange={(e) => setFormData({...formData, model: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tahunPembuatan">Tahun Pembuatan *</Label>
+              <Input 
+                id="tahunPembuatan" 
+                type="number" 
+                placeholder="2020" 
+                min="1990" 
+                max="2025" 
+                value={formData.tahunPembuatan || ''}
+                onChange={(e) => setFormData({...formData, tahunPembuatan: parseInt(e.target.value)})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nomorRangka">Nomor Rangka *</Label>
+              <Input 
+                id="nomorRangka" 
+                placeholder="MHK***************" 
+                value={formData.nomorRangka || ''}
+                onChange={(e) => setFormData({...formData, nomorRangka: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nomorMesin">Nomor Mesin *</Label>
+              <Input 
+                id="nomorMesin" 
+                placeholder="4M40***********" 
+                value={formData.nomorMesin || ''}
+                onChange={(e) => setFormData({...formData, nomorMesin: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="kapasitasMusatan">Kapasitas Muatan</Label>
+              <Input 
+                id="kapasitasMusatan" 
+                placeholder="3 Ton, 1000 Kg, dll." 
+                value={formData.kapasitasMusatan || ''}
+                onChange={(e) => setFormData({...formData, kapasitasMusatan: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jenisBahanBakar">Jenis Bahan Bakar *</Label>
+              <Select value={formData.jenisBahanBakar || ''} onValueChange={(value) => setFormData({...formData, jenisBahanBakar: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih jenis bahan bakar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bensin">Bensin</SelectItem>
+                  <SelectItem value="Solar">Solar</SelectItem>
+                  <SelectItem value="Pertamax">Pertamax</SelectItem>
+                  <SelectItem value="Pertalite">Peritalite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warna">Warna</Label>
+              <Input 
+                id="warna" 
+                placeholder="Putih, Merah, dll." 
+                value={formData.warna || ''}
+                onChange={(e) => setFormData({...formData, warna: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tanggalPerolehan">Tanggal Perolehan *</Label>
+              <Input 
+                id="tanggalPerolehan" 
+                type="date" 
+                value={formData.tanggalPerolehan || ''}
+                onChange={(e) => setFormData({...formData, tanggalPerolehan: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="statusKepemilikan">Status Kepemilikan *</Label>
+              <Select value={formData.statusKepemilikan || ''} onValueChange={(value) => setFormData({...formData, statusKepemilikan: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih status kepemilikan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Milik Sendiri">Milik Sendiri</SelectItem>
+                  <SelectItem value="Sewa">Sewa</SelectItem>
+                  <SelectItem value="Kredit">Kredit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="jenisKendaraan">Jenis Kendaraan *</Label>
-            <Select>
+            <Label htmlFor="lokasiPool">Lokasi Pool/Garasi *</Label>
+            <Select value={formData.lokasiPool || ''} onValueChange={(value) => setFormData({...formData, lokasiPool: value})}>
               <SelectTrigger>
-                <SelectValue placeholder="Pilih jenis kendaraan" />
+                <SelectValue placeholder="Pilih lokasi pool" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="truk">Truk</SelectItem>
-                <SelectItem value="pickup">Pickup</SelectItem>
-                <SelectItem value="van">Van</SelectItem>
-                <SelectItem value="motor">Motor</SelectItem>
+                <SelectItem value="Pool Utama Bandung">Pool Utama Bandung</SelectItem>
+                <SelectItem value="Pool Cimahi">Pool Cimahi</SelectItem>
+                <SelectItem value="Pool Subang">Pool Subang</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="merek">Merek *</Label>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih merek" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="toyota">Toyota</SelectItem>
-                <SelectItem value="mitsubishi">Mitsubishi</SelectItem>
-                <SelectItem value="isuzu">Isuzu</SelectItem>
-                <SelectItem value="daihatsu">Daihatsu</SelectItem>
-                <SelectItem value="honda">Honda</SelectItem>
-                <SelectItem value="suzuki">Suzuki</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="catatan">Catatan Tambahan</Label>
+            <Textarea 
+              id="catatan" 
+              placeholder="Catatan khusus tentang kendaraan ini..." 
+              value={formData.catatan || ''}
+              onChange={(e) => setFormData({...formData, catatan: e.target.value})}
+            />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="model">Model *</Label>
-            <Input id="model" placeholder="Hilux, Canter, Elf, dll." />
+          <div className="flex gap-2 pt-4">
+            <Button type="submit" className="flex-1">
+              {editingVehicle ? 'Update Kendaraan' : 'Simpan Kendaraan'}
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>Batal</Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="tahunPembuatan">Tahun Pembuatan *</Label>
-            <Input id="tahunPembuatan" type="number" placeholder="2020" min="1990" max="2025" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="nomorRangka">Nomor Rangka *</Label>
-            <Input id="nomorRangka" placeholder="MHK***************" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="nomorMesin">Nomor Mesin *</Label>
-            <Input id="nomorMesin" placeholder="4M40***********" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="kapasitasMusatan">Kapasitas Muatan</Label>
-            <Input id="kapasitasMusatan" placeholder="3 Ton, 1000 Kg, dll." />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="jenisBahanBakar">Jenis Bahan Bakar *</Label>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih jenis bahan bakar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bensin">Bensin</SelectItem>
-                <SelectItem value="solar">Solar</SelectItem>
-                <SelectItem value="pertamax">Pertamax</SelectItem>
-                <SelectItem value="pertalite">Pertalite</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="warna">Warna</Label>
-            <Input id="warna" placeholder="Putih, Merah, dll." />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tanggalPerolehan">Tanggal Perolehan *</Label>
-            <Input id="tanggalPerolehan" type="date" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="statusKepemilikan">Status Kepemilikan *</Label>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih status kepemilikan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="milik-sendiri">Milik Sendiri</SelectItem>
-                <SelectItem value="sewa">Sewa</SelectItem>
-                <SelectItem value="kredit">Kredit</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="lokasiPool">Lokasi Pool/Garasi *</Label>
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih lokasi pool" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pool-utama">Pool Utama Bandung</SelectItem>
-              <SelectItem value="pool-cimahi">Pool Cimahi</SelectItem>
-              <SelectItem value="pool-subang">Pool Subang</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="catatan">Catatan Tambahan</Label>
-          <Textarea id="catatan" placeholder="Catatan khusus tentang kendaraan ini..." />
-        </div>
-        <div className="flex gap-2 pt-4">
-          <Button className="flex-1">Simpan Kendaraan</Button>
-          <Button variant="outline" onClick={() => setShowAddForm(false)}>Batal</Button>
-        </div>
+        </form>
       </CardContent>
     </Card>
   );
@@ -291,7 +418,7 @@ const VehicleManagement = () => {
                         {vehicle.statusDokumen}
                       </Badge>
                       <VehicleHealthIndicator
-                        vehicleId={vehicle.id.toString()}
+                        vehicleId={vehicle.id}
                         kmTempuh={48500}
                         tahunPembuatan={vehicle.tahunPembuatan}
                         lastServiceDays={30}
@@ -309,13 +436,13 @@ const VehicleManagement = () => {
                         <span className="font-medium">Tahun:</span> {vehicle.tahunPembuatan}
                       </div>
                       <div>
-                        <span className="font-medium">Kapasitas:</span> {vehicle.kapasitasMusatan}
+                        <span className="font-medium">Kapasitas:</span> {vehicle.kapasitasMusatan || 'N/A'}
                       </div>
                       <div>
                         <span className="font-medium">Bahan Bakar:</span> {vehicle.jenisBahanBakar}
                       </div>
                       <div>
-                        <span className="font-medium">Servis Berikutnya:</span> {vehicle.servisBerikutnya}
+                        <span className="font-medium">Servis Berikutnya:</span> {vehicle.servisBerikutnya || 'Belum Dijadwalkan'}
                       </div>
                       <div className="sm:col-span-2">
                         <span className="font-medium">Lokasi:</span> {vehicle.lokasiPool}
@@ -330,12 +457,17 @@ const VehicleManagement = () => {
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEdit(vehicle)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
+                      onClick={() => handleToggleStatus(vehicle)}
                       className={vehicle.status === 'Aktif' ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
                     >
                       <Power className="h-4 w-4" />
@@ -344,6 +476,11 @@ const VehicleManagement = () => {
                 </div>
               </div>
             ))}
+            {filteredVehicles.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Tidak ada kendaraan yang ditemukan. Tambahkan kendaraan baru untuk memulai.</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

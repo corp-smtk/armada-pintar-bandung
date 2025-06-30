@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { DollarSign, Plus, TrendingUp, FileBarChart, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, Plus, TrendingUp, FileBarChart, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,68 +9,124 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { localStorageService, OperationalCost, Vehicle } from '@/services/LocalStorageService';
 
 const CostReporting = () => {
+  const [costs, setCosts] = useState<OperationalCost[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showCostForm, setShowCostForm] = useState(false);
+  const [editingCost, setEditingCost] = useState<OperationalCost | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('this-month');
+  const [formData, setFormData] = useState<Partial<OperationalCost>>({});
+  const { toast } = useToast();
 
-  // Mock cost data
-  const operationalCosts = [
-    {
-      id: 1,
-      platNomor: 'B 1234 AB',
-      tanggal: '2024-06-25',
-      jenisBiaya: 'Bahan Bakar',
-      deskripsi: 'Isi solar di SPBU Shell',
-      jumlah: 450000,
-      lokasi: 'SPBU Shell Pasteur'
-    },
-    {
-      id: 2,
-      platNomor: 'B 5678 CD',
-      tanggal: '2024-06-24',
-      jenisBiaya: 'Tol',
-      deskripsi: 'Tol Jakarta-Bandung PP',
-      jumlah: 85000,
-      lokasi: 'Tol Cipularang'
-    },
-    {
-      id: 3,
-      platNomor: 'B 1234 AB',
-      tanggal: '2024-06-23',
-      jenisBiaya: 'Parkir',
-      deskripsi: 'Parkir di terminal LPG',
-      jumlah: 15000,
-      lokasi: 'Terminal LPG Gedebage'
-    },
-    {
-      id: 4,
-      platNomor: 'B 9101 EF',
-      tanggal: '2024-06-22',
-      jenisBiaya: 'Bahan Bakar',
-      deskripsi: 'Isi solar',
-      jumlah: 380000,
-      lokasi: 'SPBU Pertamina'
-    },
-    {
-      id: 5,
-      platNomor: 'B 5678 CD',
-      tanggal: '2024-06-21',
-      jenisBiaya: 'Denda',
-      deskripsi: 'Denda parkir berlebih',
-      jumlah: 50000,
-      lokasi: 'Samsat Bandung'
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
+    const loadedCosts = localStorageService.getOperationalCosts();
+    const loadedVehicles = localStorageService.getVehicles();
+    setCosts(loadedCosts);
+    setVehicles(loadedVehicles);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.vehicleId || !formData.tanggal || !formData.jenisBiaya || 
+        !formData.deskripsi || !formData.jumlah) {
+      toast({
+        title: "Error",
+        description: "Mohon lengkapi semua field yang wajib diisi",
+        variant: "destructive"
+      });
+      return;
     }
-  ];
+
+    try {
+      const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId);
+      if (!selectedVehicle) {
+        throw new Error("Kendaraan tidak ditemukan");
+      }
+
+      const costData = {
+        ...formData,
+        platNomor: selectedVehicle.platNomor,
+        kategori: getCostCategory(formData.jenisBiaya || '')
+      } as Omit<OperationalCost, 'id' | 'createdAt' | 'updatedAt'>;
+
+      if (editingCost) {
+        localStorageService.updateOperationalCost(editingCost.id, costData);
+        toast({
+          title: "Berhasil",
+          description: "Data biaya berhasil diperbarui"
+        });
+      } else {
+        localStorageService.addOperationalCost(costData);
+        toast({
+          title: "Berhasil",
+          description: "Biaya operasional berhasil dicatat"
+        });
+      }
+
+      loadData();
+      resetForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan data biaya",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getCostCategory = (jenisBiaya: string): 'Operasional' | 'Perawatan' | 'Administrasi' => {
+    if (['Bahan Bakar', 'Tol', 'Parkir'].includes(jenisBiaya)) return 'Operasional';
+    if (['Perawatan'].includes(jenisBiaya)) return 'Perawatan';
+    return 'Administrasi';
+  };
+
+  const handleEdit = (cost: OperationalCost) => {
+    setEditingCost(cost);
+    setFormData(cost);
+    setShowCostForm(true);
+  };
+
+  const handleDelete = (cost: OperationalCost) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus data biaya ${cost.deskripsi}?`)) {
+      try {
+        localStorageService.deleteOperationalCost(cost.id);
+        loadData();
+        toast({
+          title: "Berhasil",
+          description: "Data biaya berhasil dihapus"
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Gagal menghapus data biaya",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({});
+    setEditingCost(null);
+    setShowCostForm(false);
+  };
 
   // Calculate summary statistics
-  const totalOperationalCost = operationalCosts.reduce((sum, cost) => sum + cost.jumlah, 0);
-  const fuelCosts = operationalCosts.filter(c => c.jenisBiaya === 'Bahan Bakar').reduce((sum, cost) => sum + cost.jumlah, 0);
-  const tollCosts = operationalCosts.filter(c => c.jenisBiaya === 'Tol').reduce((sum, cost) => sum + cost.jumlah, 0);
+  const totalOperationalCost = costs.reduce((sum, cost) => sum + cost.jumlah, 0);
+  const fuelCosts = costs.filter(c => c.jenisBiaya === 'Bahan Bakar').reduce((sum, cost) => sum + cost.jumlah, 0);
+  const tollCosts = costs.filter(c => c.jenisBiaya === 'Tol').reduce((sum, cost) => sum + cost.jumlah, 0);
   const otherCosts = totalOperationalCost - fuelCosts - tollCosts;
 
   // Group costs by vehicle
-  const costsByVehicle = operationalCosts.reduce((acc, cost) => {
+  const costsByVehicle = costs.reduce((acc, cost) => {
     if (!acc[cost.platNomor]) {
       acc[cost.platNomor] = 0;
     }
@@ -84,6 +140,9 @@ const CostReporting = () => {
       'Tol': 'bg-green-100 text-green-800',
       'Parkir': 'bg-yellow-100 text-yellow-800',
       'Denda': 'bg-red-100 text-red-800',
+      'Perawatan': 'bg-purple-100 text-purple-800',
+      'Asuransi': 'bg-indigo-100 text-indigo-800',
+      'Pajak': 'bg-pink-100 text-pink-800',
       'Lain-lain': 'bg-gray-100 text-gray-800'
     };
     return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
@@ -92,62 +151,92 @@ const CostReporting = () => {
   const CostEntryForm = () => (
     <Card>
       <CardHeader>
-        <CardTitle>Catat Biaya Operasional</CardTitle>
+        <CardTitle>{editingCost ? 'Edit Biaya Operasional' : 'Catat Biaya Operasional'}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="pilihKendaraanBiaya">Pilih Kendaraan *</Label>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih kendaraan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="B1234AB">B 1234 AB - Mitsubishi Canter</SelectItem>
-                <SelectItem value="B5678CD">B 5678 CD - Toyota Hilux</SelectItem>
-                <SelectItem value="B9101EF">B 9101 EF - Isuzu Elf</SelectItem>
-              </SelectContent>
-            </Select>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="vehicleId">Pilih Kendaraan *</Label>
+              <Select value={formData.vehicleId || ''} onValueChange={(value) => setFormData({...formData, vehicleId: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kendaraan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map(vehicle => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tanggal">Tanggal *</Label>
+              <Input 
+                id="tanggal" 
+                type="date" 
+                value={formData.tanggal || ''}
+                onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jenisBiaya">Jenis Biaya *</Label>
+              <Select value={formData.jenisBiaya || ''} onValueChange={(value) => setFormData({...formData, jenisBiaya: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih jenis biaya" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bahan Bakar">Bahan Bakar</SelectItem>
+                  <SelectItem value="Tol">Tol</SelectItem>
+                  <SelectItem value="Parkir">Parkir</SelectItem>
+                  <SelectItem value="Denda">Denda</SelectItem>
+                  <SelectItem value="Perawatan">Perawatan</SelectItem>
+                  <SelectItem value="Asuransi">Asuransi</SelectItem>
+                  <SelectItem value="Pajak">Pajak</SelectItem>
+                  <SelectItem value="Lain-lain">Lain-lain</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jumlah">Jumlah Biaya *</Label>
+              <Input 
+                id="jumlah" 
+                type="number" 
+                placeholder="450000" 
+                value={formData.jumlah || ''}
+                onChange={(e) => setFormData({...formData, jumlah: parseInt(e.target.value)})}
+                required
+              />
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tanggalBiaya">Tanggal *</Label>
-            <Input id="tanggalBiaya" type="date" />
+            <Label htmlFor="deskripsi">Deskripsi *</Label>
+            <Textarea 
+              id="deskripsi" 
+              placeholder="Isi solar di SPBU Shell Pasteur..." 
+              value={formData.deskripsi || ''}
+              onChange={(e) => setFormData({...formData, deskripsi: e.target.value})}
+              required
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="jenisBiaya">Jenis Biaya *</Label>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih jenis biaya" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bahan-bakar">Bahan Bakar</SelectItem>
-                <SelectItem value="tol">Tol</SelectItem>
-                <SelectItem value="parkir">Parkir</SelectItem>
-                <SelectItem value="denda">Denda</SelectItem>
-                <SelectItem value="perawatan">Perawatan</SelectItem>
-                <SelectItem value="asuransi">Asuransi</SelectItem>
-                <SelectItem value="pajak">Pajak</SelectItem>
-                <SelectItem value="lain-lain">Lain-lain</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="lokasi">Lokasi Transaksi</Label>
+            <Input 
+              id="lokasi" 
+              placeholder="SPBU Shell Pasteur, Tol Cipularang, dll." 
+              value={formData.lokasi || ''}
+              onChange={(e) => setFormData({...formData, lokasi: e.target.value})}
+            />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="jumlahBiaya">Jumlah Biaya *</Label>
-            <Input id="jumlahBiaya" type="number" placeholder="450000" />
+          <div className="flex gap-2 pt-4">
+            <Button type="submit" className="flex-1">
+              {editingCost ? 'Update Biaya' : 'Simpan Biaya'}
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>Batal</Button>
           </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="deskripsiBiaya">Deskripsi *</Label>
-          <Textarea id="deskripsiBiaya" placeholder="Isi solar di SPBU Shell Pasteur..." />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="lokasiTransaksi">Lokasi Transaksi</Label>
-          <Input id="lokasiTransaksi" placeholder="SPBU Shell Pasteur, Tol Cipularang, dll." />
-        </div>
-        <div className="flex gap-2 pt-4">
-          <Button className="flex-1">Simpan Biaya</Button>
-          <Button variant="outline" onClick={() => setShowCostForm(false)}>Batal</Button>
-        </div>
+        </form>
       </CardContent>
     </Card>
   );
@@ -175,7 +264,7 @@ const CostReporting = () => {
             <div className="text-2xl font-bold text-blue-600">
               Rp {totalOperationalCost.toLocaleString('id-ID')}
             </div>
-            <p className="text-xs text-gray-500">bulan ini</p>
+            <p className="text-xs text-gray-500">total tercatat</p>
           </CardContent>
         </Card>
 
@@ -189,7 +278,7 @@ const CostReporting = () => {
               Rp {fuelCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
-              {Math.round((fuelCosts / totalOperationalCost) * 100)}% dari total
+              {totalOperationalCost > 0 ? Math.round((fuelCosts / totalOperationalCost) * 100) : 0}% dari total
             </p>
           </CardContent>
         </Card>
@@ -204,7 +293,7 @@ const CostReporting = () => {
               Rp {tollCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
-              {Math.round((tollCosts / totalOperationalCost) * 100)}% dari total
+              {totalOperationalCost > 0 ? Math.round((tollCosts / totalOperationalCost) * 100) : 0}% dari total
             </p>
           </CardContent>
         </Card>
@@ -219,7 +308,7 @@ const CostReporting = () => {
               Rp {otherCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
-              {Math.round((otherCosts / totalOperationalCost) * 100)}% dari total
+              {totalOperationalCost > 0 ? Math.round((otherCosts / totalOperationalCost) * 100) : 0}% dari total
             </p>
           </CardContent>
         </Card>
@@ -254,69 +343,93 @@ const CostReporting = () => {
 
               <TabsContent value="recent" className="mt-0">
                 <div className="space-y-4">
-                  {operationalCosts.map((cost) => (
-                    <div key={cost.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <DollarSign className="h-6 w-6 text-blue-600" />
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold">{cost.deskripsi}</h4>
-                              <Badge className={getCostTypeBadge(cost.jenisBiaya)}>
-                                {cost.jenisBiaya}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
-                              <div><span className="font-medium">Kendaraan:</span> {cost.platNomor}</div>
-                              <div><span className="font-medium">Tanggal:</span> {cost.tanggal}</div>
-                              <div><span className="font-medium">Lokasi:</span> {cost.lokasi}</div>
+                  {costs.length > 0 ? (
+                    costs.sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((cost) => (
+                      <div key={cost.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 flex-1">
+                            <DollarSign className="h-6 w-6 text-blue-600" />
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold">{cost.deskripsi}</h4>
+                                <Badge className={getCostTypeBadge(cost.jenisBiaya)}>
+                                  {cost.jenisBiaya}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
+                                <div><span className="font-medium">Kendaraan:</span> {cost.platNomor}</div>
+                                <div><span className="font-medium">Tanggal:</span> {cost.tanggal}</div>
+                                <div><span className="font-medium">Lokasi:</span> {cost.lokasi || 'N/A'}</div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-semibold text-blue-600">
-                            Rp {cost.jumlah.toLocaleString('id-ID')}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-blue-600">
+                                Rp {cost.jumlah.toLocaleString('id-ID')}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Button variant="outline" size="sm" onClick={() => handleEdit(cost)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDelete(cost)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Belum ada transaksi yang dicatat</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="by-vehicle" className="mt-0">
                 <div className="space-y-4">
                   <h4 className="font-semibold">Biaya Operasional per Kendaraan</h4>
-                  {Object.entries(costsByVehicle).map(([platNomor, totalCost]) => {
-                    const vehicleCosts = operationalCosts.filter(c => c.platNomor === platNomor);
-                    return (
-                      <Card key={platNomor}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{platNomor}</CardTitle>
-                            <div className="text-xl font-bold text-blue-600">
-                              Rp {totalCost.toLocaleString('id-ID')}
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {vehicleCosts.map((cost) => (
-                              <div key={cost.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                <div>
-                                  <div className="font-medium text-sm">{cost.deskripsi}</div>
-                                  <div className="text-xs text-gray-600">{cost.tanggal} • {cost.jenisBiaya}</div>
-                                </div>
-                                <div className="font-semibold">
-                                  Rp {cost.jumlah.toLocaleString('id-ID')}
-                                </div>
+                  {Object.keys(costsByVehicle).length > 0 ? (
+                    Object.entries(costsByVehicle).map(([platNomor, totalCost]) => {
+                      const vehicleCosts = costs.filter(c => c.platNomor === platNomor);
+                      return (
+                        <Card key={platNomor}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg">{platNomor}</CardTitle>
+                              <div className="text-xl font-bold text-blue-600">
+                                Rp {totalCost.toLocaleString('id-ID')}
                               </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {vehicleCosts.map((cost) => (
+                                <div key={cost.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                  <div>
+                                    <div className="font-medium text-sm">{cost.deskripsi}</div>
+                                    <div className="text-xs text-gray-600">{cost.tanggal} • {cost.jenisBiaya}</div>
+                                  </div>
+                                  <div className="font-semibold">
+                                    Rp {cost.jumlah.toLocaleString('id-ID')}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Belum ada data biaya per kendaraan</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -340,7 +453,7 @@ const CostReporting = () => {
                             <div className="text-right">
                               <div className="font-semibold">Rp {fuelCosts.toLocaleString('id-ID')}</div>
                               <div className="text-sm text-gray-600">
-                                {Math.round((fuelCosts / totalOperationalCost) * 100)}%
+                                {totalOperationalCost > 0 ? Math.round((fuelCosts / totalOperationalCost) * 100) : 0}%
                               </div>
                             </div>
                           </div>
@@ -352,7 +465,7 @@ const CostReporting = () => {
                             <div className="text-right">
                               <div className="font-semibold">Rp {tollCosts.toLocaleString('id-ID')}</div>
                               <div className="text-sm text-gray-600">
-                                {Math.round((tollCosts / totalOperationalCost) * 100)}%
+                                {totalOperationalCost > 0 ? Math.round((tollCosts / totalOperationalCost) * 100) : 0}%
                               </div>
                             </div>
                           </div>
@@ -364,7 +477,7 @@ const CostReporting = () => {
                             <div className="text-right">
                               <div className="font-semibold">Rp {otherCosts.toLocaleString('id-ID')}</div>
                               <div className="text-sm text-gray-600">
-                                {Math.round((otherCosts / totalOperationalCost) * 100)}%
+                                {totalOperationalCost > 0 ? Math.round((otherCosts / totalOperationalCost) * 100) : 0}%
                               </div>
                             </div>
                           </div>
@@ -380,21 +493,21 @@ const CostReporting = () => {
                         <div className="space-y-4">
                           <div className="text-center p-4 bg-blue-50 rounded">
                             <div className="text-2xl font-bold text-blue-600">
-                              Rp {Math.round(totalOperationalCost / Object.keys(costsByVehicle).length).toLocaleString('id-ID')}
+                              Rp {Object.keys(costsByVehicle).length > 0 ? Math.round(totalOperationalCost / Object.keys(costsByVehicle).length).toLocaleString('id-ID') : 0}
                             </div>
                             <p className="text-sm text-gray-600">Rata-rata biaya per kendaraan</p>
                           </div>
                           <div className="text-center p-4 bg-green-50 rounded">
                             <div className="text-2xl font-bold text-green-600">
-                              {operationalCosts.length}
+                              {costs.length}
                             </div>
-                            <p className="text-sm text-gray-600">Total transaksi bulan ini</p>
+                            <p className="text-sm text-gray-600">Total transaksi tercatat</p>
                           </div>
                           <div className="text-center p-4 bg-purple-50 rounded">
                             <div className="text-2xl font-bold text-purple-600">
                               {Object.keys(costsByVehicle).length}
                             </div>
-                            <p className="text-sm text-gray-600">Kendaraan aktif beroperasi</p>
+                            <p className="text-sm text-gray-600">Kendaraan dengan data biaya</p>
                           </div>
                         </div>
                       </CardContent>
