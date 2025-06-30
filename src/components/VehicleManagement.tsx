@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Eye, Power, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,6 +157,20 @@ const VehicleManagement = () => {
     return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
   };
 
+  // Convert Vehicle to VehicleDetailDashboard format
+  const convertVehicleForDashboard = (vehicle: Vehicle) => {
+    return {
+      id: parseInt(vehicle.id) || 0, // Convert string id to number, fallback to 0
+      platNomor: vehicle.platNomor,
+      jenisKendaraan: vehicle.jenisKendaraan,
+      merek: vehicle.merek,
+      model: vehicle.model,
+      tahunPembuatan: vehicle.tahunPembuatan,
+      status: vehicle.status,
+      lokasiPool: vehicle.lokasiPool
+    };
+  };
+
   // If a vehicle is selected, show detailed dashboard
   if (selectedVehicle) {
     return (
@@ -172,7 +185,7 @@ const VehicleManagement = () => {
             Kembali ke Daftar
           </Button>
         </div>
-        <VehicleDetailDashboard vehicle={selectedVehicle} />
+        <VehicleDetailDashboard vehicle={convertVehicleForDashboard(selectedVehicle)} />
       </div>
     );
   }
