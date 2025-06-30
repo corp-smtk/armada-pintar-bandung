@@ -1,4 +1,7 @@
-import { BarChart3, Truck, FileText, Wrench, DollarSign, Bell } from 'lucide-react';
+
+import { useState } from 'react';
+import { BarChart3, Truck, FileText, Wrench, DollarSign, Bell, Menu, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface NavigationProps {
   activeModule: string;
@@ -6,84 +9,98 @@ interface NavigationProps {
 }
 
 const Navigation = ({ activeModule, setActiveModule }: NavigationProps) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigationItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'vehicles', label: 'Kendaraan', icon: Truck },
+    { id: 'documents', label: 'Dokumen', icon: FileText },
+    { id: 'maintenance', label: 'Perawatan', icon: Wrench },
+    { id: 'costs', label: 'Biaya', icon: DollarSign },
+    { id: 'reminders', label: 'Reminder', icon: Bell }
+  ];
+
+  const handleNavClick = (moduleId: string) => {
+    setActiveModule(moduleId);
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <nav className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
+    <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+        <div className="flex justify-between h-14 sm:h-16">
+          {/* Logo Section */}
+          <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Truck className="h-8 w-8 text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-900">Fleet Manager</span>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <button
-                onClick={() => setActiveModule('dashboard')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'dashboard'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActiveModule('vehicles')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'vehicles'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Truck className="h-4 w-4 mr-2" />
-                Kendaraan
-              </button>
-              <button
-                onClick={() => setActiveModule('documents')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'documents'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Dokumen
-              </button>
-              <button
-                onClick={() => setActiveModule('maintenance')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'maintenance'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Wrench className="h-4 w-4 mr-2" />
-                Perawatan
-              </button>
-              <button
-                onClick={() => setActiveModule('costs')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'costs'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                Biaya
-              </button>
-              <button
-                onClick={() => setActiveModule('reminders')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  activeModule === 'reminders'
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Reminder
-              </button>
+              <Truck className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mr-2" />
+              <span className="text-lg sm:text-xl font-bold text-gray-900 hidden xs:block">Fleet Manager</span>
+              <span className="text-lg sm:text-xl font-bold text-gray-900 block xs:hidden">FM</span>
             </div>
           </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex lg:space-x-2 xl:space-x-4">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`inline-flex items-center px-2 xl:px-3 py-1 border-b-2 text-xs xl:text-sm font-medium transition-colors ${
+                    activeModule === item.id
+                      ? 'border-blue-500 text-gray-900 bg-blue-50'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="h-3 w-3 xl:h-4 xl:w-4 mr-1 xl:mr-2" />
+                  <span className="hidden xl:block">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="lg:hidden flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Navigation Menu */}
+      <div className={`lg:hidden transition-all duration-300 ease-in-out ${
+        mobileMenuOpen 
+          ? 'max-h-96 opacity-100 border-t border-gray-200' 
+          : 'max-h-0 opacity-0 overflow-hidden'
+      }`}>
+        <div className="bg-white px-3 sm:px-4 py-2 space-y-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${
+                  activeModule === item.id
+                    ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-500'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <Icon className="h-4 w-4 mr-3" />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </nav>
