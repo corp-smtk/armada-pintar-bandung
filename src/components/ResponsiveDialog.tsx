@@ -2,7 +2,7 @@
 import { ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useMediaQuery } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ResponsiveDialogProps {
   open: boolean;
@@ -19,7 +19,7 @@ export const ResponsiveDialog = ({
   children, 
   className = '' 
 }: ResponsiveDialogProps) => {
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return (
