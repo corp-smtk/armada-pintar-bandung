@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DollarSign, Plus, TrendingUp, FileBarChart, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,26 +12,35 @@ import { useToast } from '@/hooks/use-toast';
 import { localStorageService, OperationalCost, Vehicle } from '@/services/LocalStorageService';
 
 const CostReporting = () => {
+  const { toast } = useToast();
   const [costs, setCosts] = useState<OperationalCost[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showCostForm, setShowCostForm] = useState(false);
   const [editingCost, setEditingCost] = useState<OperationalCost | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('this-month');
-  const [formData, setFormData] = useState<Partial<OperationalCost>>({});
-  const { toast } = useToast();
+  
+  // Optimized form data state management
+  const [formData, setFormData] = useState({
+    vehicleId: '',
+    tanggal: '',
+    jenisBiaya: '',
+    deskripsi: '',
+    jumlah: '',
+    lokasi: ''
+  });
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const loadedCosts = localStorageService.getOperationalCosts();
     const loadedVehicles = localStorageService.getVehicles();
     setCosts(loadedCosts);
     setVehicles(loadedVehicles);
-  };
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.vehicleId || !formData.tanggal || !formData.jenisBiaya || 
@@ -52,9 +60,14 @@ const CostReporting = () => {
       }
 
       const costData = {
-        ...formData,
+        vehicleId: formData.vehicleId,
+        tanggal: formData.tanggal,
+        jenisBiaya: formData.jenisBiaya,
+        deskripsi: formData.deskripsi,
+        jumlah: parseInt(formData.jumlah) || 0,
+        lokasi: formData.lokasi,
         platNomor: selectedVehicle.platNomor,
-        kategori: getCostCategory(formData.jenisBiaya || '')
+        kategori: getCostCategory(formData.jenisBiaya)
       } as Omit<OperationalCost, 'id' | 'createdAt' | 'updatedAt'>;
 
       if (editingCost) {
@@ -80,7 +93,7 @@ const CostReporting = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [formData, vehicles, editingCost, loadData, toast]);
 
   const getCostCategory = (jenisBiaya: string): 'Operasional' | 'Perawatan' | 'Administrasi' => {
     if (['Bahan Bakar', 'Tol', 'Parkir'].includes(jenisBiaya)) return 'Operasional';
@@ -88,11 +101,18 @@ const CostReporting = () => {
     return 'Administrasi';
   };
 
-  const handleEdit = (cost: OperationalCost) => {
+  const handleEdit = useCallback((cost: OperationalCost) => {
     setEditingCost(cost);
-    setFormData(cost);
+    setFormData({
+      vehicleId: cost.vehicleId,
+      tanggal: cost.tanggal,
+      jenisBiaya: cost.jenisBiaya,
+      deskripsi: cost.deskripsi,
+      jumlah: cost.jumlah.toString(),
+      lokasi: cost.lokasi || ''
+    });
     setShowCostForm(true);
-  };
+  }, []);
 
   const handleDelete = (cost: OperationalCost) => {
     if (confirm(`Apakah Anda yakin ingin menghapus data biaya ${cost.deskripsi}?`)) {
@@ -113,11 +133,18 @@ const CostReporting = () => {
     }
   };
 
-  const resetForm = () => {
-    setFormData({});
+  const resetForm = useCallback(() => {
+    setFormData({
+      vehicleId: '',
+      tanggal: '',
+      jenisBiaya: '',
+      deskripsi: '',
+      jumlah: '',
+      lokasi: ''
+    });
     setEditingCost(null);
     setShowCostForm(false);
-  };
+  }, []);
 
   // Calculate summary statistics
   const totalOperationalCost = costs.reduce((sum, cost) => sum + cost.jumlah, 0);
@@ -148,98 +175,31 @@ const CostReporting = () => {
     return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
   };
 
-  const CostEntryForm = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle>{editingCost ? 'Edit Biaya Operasional' : 'Catat Biaya Operasional'}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="vehicleId">Pilih Kendaraan *</Label>
-              <Select value={formData.vehicleId || ''} onValueChange={(value) => setFormData({...formData, vehicleId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kendaraan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map(vehicle => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tanggal">Tanggal *</Label>
-              <Input 
-                id="tanggal" 
-                type="date" 
-                value={formData.tanggal || ''}
-                onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jenisBiaya">Jenis Biaya *</Label>
-              <Select value={formData.jenisBiaya || ''} onValueChange={(value) => setFormData({...formData, jenisBiaya: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih jenis biaya" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bahan Bakar">Bahan Bakar</SelectItem>
-                  <SelectItem value="Tol">Tol</SelectItem>
-                  <SelectItem value="Parkir">Parkir</SelectItem>
-                  <SelectItem value="Denda">Denda</SelectItem>
-                  <SelectItem value="Perawatan">Perawatan</SelectItem>
-                  <SelectItem value="Asuransi">Asuransi</SelectItem>
-                  <SelectItem value="Pajak">Pajak</SelectItem>
-                  <SelectItem value="Lain-lain">Lain-lain</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jumlah">Jumlah Biaya *</Label>
-              <Input 
-                id="jumlah" 
-                type="number" 
-                placeholder="450000" 
-                value={formData.jumlah || ''}
-                onChange={(e) => setFormData({...formData, jumlah: parseInt(e.target.value)})}
-                required
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="deskripsi">Deskripsi *</Label>
-            <Textarea 
-              id="deskripsi" 
-              placeholder="Isi solar di SPBU Shell Pasteur..." 
-              value={formData.deskripsi || ''}
-              onChange={(e) => setFormData({...formData, deskripsi: e.target.value})}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lokasi">Lokasi Transaksi</Label>
-            <Input 
-              id="lokasi" 
-              placeholder="SPBU Shell Pasteur, Tol Cipularang, dll." 
-              value={formData.lokasi || ''}
-              onChange={(e) => setFormData({...formData, lokasi: e.target.value})}
-            />
-          </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" className="flex-1">
-              {editingCost ? 'Update Biaya' : 'Simpan Biaya'}
-            </Button>
-            <Button type="button" variant="outline" onClick={resetForm}>Batal</Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
+  // Form input change handlers with useCallback for optimization
+  const handleVehicleChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, vehicleId: value }));
+  }, []);
+
+  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, tanggal: e.target.value }));
+  }, []);
+
+  const handleJenisBiayaChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, jenisBiaya: value }));
+  }, []);
+
+  const handleJumlahChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, jumlah: value }));
+  }, []);
+
+  const handleDeskripsiChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, deskripsi: e.target.value }));
+  }, []);
+
+  const handleLokasiChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, lokasi: e.target.value }));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -251,7 +211,98 @@ const CostReporting = () => {
         </Button>
       </div>
 
-      {showCostForm && <CostEntryForm />}
+      {showCostForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{editingCost ? 'Edit Biaya Operasional' : 'Catat Biaya Operasional'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleId">Pilih Kendaraan *</Label>
+                  <Select value={formData.vehicleId} onValueChange={handleVehicleChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih kendaraan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map(vehicle => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tanggal">Tanggal *</Label>
+                  <Input 
+                    id="tanggal" 
+                    type="date" 
+                    value={formData.tanggal}
+                    onChange={handleDateChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jenisBiaya">Jenis Biaya *</Label>
+                  <Select value={formData.jenisBiaya} onValueChange={handleJenisBiayaChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih jenis biaya" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bahan Bakar">Bahan Bakar</SelectItem>
+                      <SelectItem value="Tol">Tol</SelectItem>
+                      <SelectItem value="Parkir">Parkir</SelectItem>
+                      <SelectItem value="Denda">Denda</SelectItem>
+                      <SelectItem value="Perawatan">Perawatan</SelectItem>
+                      <SelectItem value="Asuransi">Asuransi</SelectItem>
+                      <SelectItem value="Pajak">Pajak</SelectItem>
+                      <SelectItem value="Lain-lain">Lain-lain</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jumlah">Jumlah Biaya *</Label>
+                  <Input 
+                    id="jumlah" 
+                    type="number" 
+                    placeholder="450000" 
+                    value={formData.jumlah}
+                    onChange={handleJumlahChange}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deskripsi">Deskripsi *</Label>
+                <Textarea 
+                  id="deskripsi" 
+                  placeholder="Isi solar di SPBU Shell Pasteur..." 
+                  value={formData.deskripsi}
+                  onChange={handleDeskripsiChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lokasi">Lokasi Transaksi</Label>
+                <Input 
+                  id="lokasi" 
+                  placeholder="SPBU Shell Pasteur, Tol Cipularang, dll." 
+                  value={formData.lokasi}
+                  onChange={handleLokasiChange}
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" className="flex-1">
+                  {editingCost ? 'Update Biaya' : 'Simpan Biaya'}
+                </Button>
+                <Button type="button" variant="outline" onClick={resetForm}>Batal</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

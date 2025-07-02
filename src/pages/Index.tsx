@@ -197,10 +197,16 @@ const Index = () => {
     </div>
   );
 
+  const handleModuleNavigation = (module: string, params?: any) => {
+    setActiveModule(module);
+    // Could use params for future deep linking or specific actions
+    console.log('Navigating to module:', module, 'with params:', params);
+  };
+
   const renderActiveModule = () => {
     switch (activeModule) {
       case 'vehicles':
-        return <VehicleManagement />;
+        return <VehicleManagement onNavigate={handleModuleNavigation} />;
       case 'documents':
         return <DocumentManagement />;
       case 'maintenance':
