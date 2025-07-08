@@ -75,7 +75,7 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-trick
 
 update from Lovable Dev
 
-Fleet Reminder Management System - Development Summary
+GasTrax Reminder Management System - Development Summary
 📋 System Overview
 Sistem manajemen reminder untuk armada kendaraan yang mendukung pengiriman notifikasi via Email dan Telegram untuk berbagai kebutuhan seperti service rutin, perpanjangan dokumen (STNK, KIR), dan asuransi.
 

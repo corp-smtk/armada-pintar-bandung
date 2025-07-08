@@ -32,6 +32,9 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Fetch vehicle data for validation
+  const vehicle = localStorageService.getVehicleById(vehicleId);
+
   // Load real service history from localStorage
   const loadServiceHistory = () => {
     setLoading(true);
@@ -56,6 +59,7 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
 
   useEffect(() => {
     loadServiceHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId]);
 
   const getStatusBadge = (status: string) => {
@@ -125,13 +129,19 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
         });
         return;
       }
+      if (!vehicle) {
+        toast({
+          title: "Error",
+          description: "Data kendaraan tidak ditemukan. Tidak dapat menyimpan entry service.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       try {
-        const vehicle = localStorageService.getVehicleById(vehicleId);
-        
         const maintenanceRecord: Omit<MaintenanceRecord, 'id' | 'createdAt' | 'updatedAt'> = {
           vehicleId: vehicleId,
-          platNomor: vehicle?.platNomor || '',
+          platNomor: vehicle.platNomor || '',
           tanggal: formData.tanggalService,
           jenisPerawatan: formData.jenisService,
           deskripsi: formData.deskripsiService,
@@ -391,6 +401,19 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
     );
   };
 
+  if (!vehicle) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center p-8">
+          <div className="text-red-500 font-semibold text-center">
+            Data kendaraan tidak ditemukan.<br />
+            Pastikan kendaraan masih terdaftar di sistem.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -448,13 +471,13 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
                           <Calendar className="h-4 w-4" />
                           {new Date(service.tanggal).toLocaleDateString('id-ID')}
                         </span>
-                        <span>{service.kilometer.toLocaleString('id-ID')} KM</span>
+                        <span>{typeof service.kilometer === 'number' && !isNaN(service.kilometer) ? service.kilometer.toLocaleString('id-ID') : '-'} KM</span>
                         {service.bengkel && <span>{service.bengkel}</span>}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xl font-bold text-blue-600">
-                        Rp {service.biaya.toLocaleString('id-ID')}
+                        Rp {typeof service.biaya === 'number' && !isNaN(service.biaya) ? service.biaya.toLocaleString('id-ID') : '0'}
                       </div>
                     </div>
                   </div>
@@ -474,7 +497,7 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
                         {service.spareParts.map((part, index) => (
                           <div key={index} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
                             <span>{part.nama} ({part.jumlah} unit)</span>
-                            <span className="font-medium">Rp {part.harga.toLocaleString('id-ID')}</span>
+                            <span className="font-medium">Rp {typeof part.harga === 'number' && !isNaN(part.harga) ? part.harga.toLocaleString('id-ID') : '0'}</span>
                           </div>
                         ))}
                       </div>
@@ -516,13 +539,13 @@ const ServiceLogbook = ({ vehicleId, refreshVehicleData }: ServiceLogbookProps) 
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  Rp {serviceHistory.reduce((sum, s) => sum + s.biaya, 0).toLocaleString('id-ID')}
+                  Rp {serviceHistory.reduce((sum, s) => sum + (typeof s.biaya === 'number' && !isNaN(s.biaya) ? s.biaya : 0), 0).toLocaleString('id-ID')}
                 </div>
                 <p className="text-sm text-gray-600">Total Biaya</p>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  Rp {Math.round((serviceHistory.reduce((sum, s) => sum + s.biaya, 0)) / serviceHistory.length).toLocaleString('id-ID')}
+                  Rp {serviceHistory.length > 0 ? Math.round((serviceHistory.reduce((sum, s) => sum + (typeof s.biaya === 'number' && !isNaN(s.biaya) ? s.biaya : 0), 0)) / serviceHistory.length).toLocaleString('id-ID') : '0'}
                 </div>
                 <p className="text-sm text-gray-600">Rata-rata per Service</p>
               </div>

@@ -12,6 +12,7 @@ import { localStorageService, Vehicle } from '@/services/LocalStorageService';
 import VehicleHealthIndicator from './VehicleHealthIndicator';
 import VehicleDetailDashboard from './VehicleDetailDashboard';
 import React from 'react';
+import { reminderService } from './ReminderService';
 
 // Simple input sanitization to prevent XSS and unwanted characters
 function sanitizeInput(input: string): string {
@@ -63,7 +64,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
       // Sanitize all string inputs
       const sanitizedData = {
         ...data,
-        platNomor: sanitizeInput(data.platNomor?.toString() || ''),
+        platNomor: platNomor,
         model: sanitizeInput(data.model?.toString() || ''),
         nomorRangka: sanitizeInput(data.nomorRangka?.toString() || ''),
         nomorMesin: sanitizeInput(data.nomorMesin?.toString() || ''),
@@ -84,6 +85,28 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
           title: "Berhasil",
           description: "Kendaraan baru berhasil ditambahkan.",
         });
+      }
+      // Reminder integration for next service
+      const servisBerikutnya = sanitizedData.servisBerikutnya;
+      if (servisBerikutnya) {
+        const existing = reminderService.getReminderConfigs().find(
+          r => r.type === 'service' && r.vehicle === platNomor && r.triggerDate === servisBerikutnya
+        );
+        if (!existing) {
+          const adminEmail = localStorageService.getEmailSettings().fromEmail;
+          reminderService.addReminderConfig({
+            title: `Service Rutin: ${platNomor}`,
+            type: 'service',
+            vehicle: platNomor,
+            triggerDate: servisBerikutnya,
+            daysBeforeAlert: [30, 14, 7, 1],
+            channels: ['email', 'whatsapp'],
+            recipients: [adminEmail],
+            messageTemplate: 'Kendaraan {vehicle} perlu service pada {date}.',
+            isRecurring: false,
+            status: 'active'
+          });
+        }
       }
       
       loadVehicles();
@@ -226,10 +249,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
           </Button>
         </div>
         <VehicleDetailDashboard
-          vehicle={{
-            ...selectedVehicle,
-            id: parseInt(selectedVehicle.id) || 0
-          }}
+          vehicle={selectedVehicle}
           onNavigate={onNavigate}
         />
       </div>
@@ -488,7 +508,10 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                                     </div>
                                     <div className="text-right">
                                       <span className="font-medium text-blue-600">
-                                        Rp {'biaya' in activity ? activity.biaya.toLocaleString('id-ID') : activity.jumlah.toLocaleString('id-ID')}
+                                        Rp {'biaya' in activity
+                                          ? (activity.biaya != null ? activity.biaya.toLocaleString('id-ID') : '-')
+                                          : (activity.jumlah != null ? activity.jumlah.toLocaleString('id-ID') : '-')
+                                        }
                                       </span>
                                     </div>
                                   </div>

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { localStorageService, Document, Vehicle } from '@/services/LocalStorageService';
+import { reminderService } from './ReminderService';
 
 // File Viewer Modal Component
 const FileViewerModal = memo(({ 
@@ -40,7 +41,7 @@ const FileViewerModal = memo(({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden" aria-describedby="file-viewer-description">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>
@@ -57,6 +58,9 @@ const FileViewerModal = memo(({
             </div>
           </div>
         </DialogHeader>
+        <span id="file-viewer-description" className="sr-only">
+          Pratinjau file dokumen kendaraan. Anda dapat melihat, mengunduh, atau menutup dialog ini.
+        </span>
         
         <div className="flex-1 overflow-auto">
           {isImage ? (
@@ -262,6 +266,15 @@ const DocumentManagement = () => {
   // Form refs for uncontrolled forms
   const documentFormRef = useRef<HTMLFormElement>(null);
 
+  const resetForm = useCallback(() => {
+    setEditingDocument(null);
+    setShowUploadForm(false);
+    setUploadedFile(null);
+    if (documentFormRef.current) {
+      documentFormRef.current.reset();
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -299,7 +312,7 @@ const DocumentManagement = () => {
     return 'Valid';
   };
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!documentFormRef.current) return;
@@ -359,6 +372,14 @@ const DocumentManagement = () => {
 
       loadData();
       resetForm();
+      // --- Robust reminder integration ---
+      await reminderService.ensureDailyRemindersForExpiredDocuments();
+      toast({
+        title: "Reminder Diperbarui",
+        description: "Pengingat dokumen kadaluarsa telah disesuaikan.",
+        variant: "default"
+      });
+      // --- End robust reminder integration ---
     } catch (error) {
       toast({
         title: "Error",
@@ -366,7 +387,7 @@ const DocumentManagement = () => {
         variant: "destructive"
       });
     }
-  }, [editingDocument, uploadedFile, vehicles, toast]);
+  }, [editingDocument, uploadedFile, vehicles, toast, resetForm]);
 
   const handleEdit = (document: Document) => {
     setEditingDocument(document);
@@ -395,7 +416,7 @@ const DocumentManagement = () => {
     }, 100);
   };
 
-  const handleDelete = (document: Document) => {
+  const handleDelete = async (document: Document) => {
     if (confirm(`Apakah Anda yakin ingin menghapus dokumen ${document.jenisDokumen} - ${document.nomorDokumen}?`)) {
       try {
         localStorageService.deleteDocument(document.id);
@@ -404,6 +425,14 @@ const DocumentManagement = () => {
           title: "Berhasil",
           description: "Dokumen berhasil dihapus"
         });
+        // --- Robust reminder integration ---
+        await reminderService.ensureDailyRemindersForExpiredDocuments();
+        toast({
+          title: "Reminder Diperbarui",
+          description: "Pengingat dokumen kadaluarsa telah disesuaikan.",
+          variant: "default"
+        });
+        // --- End robust reminder integration ---
       } catch (error) {
         toast({
           title: "Error",
@@ -413,15 +442,6 @@ const DocumentManagement = () => {
       }
     }
   };
-
-  const resetForm = useCallback(() => {
-    setEditingDocument(null);
-    setShowUploadForm(false);
-    setUploadedFile(null);
-    if (documentFormRef.current) {
-      documentFormRef.current.reset();
-    }
-  }, []);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -578,7 +598,7 @@ const DocumentManagement = () => {
       />
 
       {/* Critical Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-700">
@@ -630,6 +650,34 @@ const DocumentManagement = () => {
                 ))
               ) : (
                 <p className="text-sm text-gray-600">Tidak ada dokumen yang akan kadaluarsa</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 bg-gray-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-gray-700">
+              <AlertTriangle className="h-5 w-5" />
+              Sudah Kadaluarsa
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {expiredDocuments.length > 0 ? (
+                expiredDocuments.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between p-2 bg-white rounded">
+                    <div>
+                      <div className="font-semibold text-sm">{doc.jenisDokumen}</div>
+                      <div className="text-xs text-gray-600">{doc.platNomor}</div>
+                    </div>
+                    <Badge variant="outline" className="text-gray-600 border-gray-600">
+                      {Math.abs(doc.hariTersisa)} hari
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-600">Tidak ada dokumen yang sudah kadaluarsa</p>
               )}
             </div>
           </CardContent>

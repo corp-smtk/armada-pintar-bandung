@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, MessageCircle, TestTube, Eye, EyeOff, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Mail, MessageCircle, TestTube, Eye, EyeOff, Download, Upload, BookOpen, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { localStorageService, EmailSettings, TelegramSettings, GeneralSettings } from '@/services/LocalStorageService';
 import emailjs from '@emailjs/browser';
+import EmailJSSetupGuide from './EmailJSSetupGuide';
+import { reminderService } from './ReminderService';
 
 interface ReminderSettingsProps {
   onBack: () => void;
@@ -21,6 +24,17 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [useSimpleTemplate, setUseSimpleTemplate] = useState(false);
+  const [useUltraSimple, setUseUltraSimple] = useState(false);
+  const [configValidation, setConfigValidation] = useState({
+    email: { isValid: false, errors: [] as string[], warnings: [] as string[] },
+    telegram: { isValid: false, errors: [] as string[], warnings: [] as string[] }
+  });
+  const [waTestStatus, setWaTestStatus] = useState<'idle' | 'sending' | 'success' | 'error'>("idle");
+  const [waTestMessage, setWaTestMessage] = useState("");
+  const [waTestRecipient, setWaTestRecipient] = useState("");
 
   // Load settings from localStorage
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(() => 
@@ -33,6 +47,62 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
     localStorageService.getGeneralSettings()
   );
 
+  // WhatsApp settings state
+  const initialWhatsApp = localStorageService.getWhatsAppSettings();
+  const [waEnabled, setWaEnabled] = useState(initialWhatsApp.enabled);
+  const [waApiKey, setWaApiKey] = useState(initialWhatsApp.api_key);
+  const [waSender, setWaSender] = useState(initialWhatsApp.sender);
+  const [waSaved, setWaSaved] = useState(false);
+
+  // Validation functions
+  const validateEmailConfig = (settings: EmailSettings) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    if (!settings.serviceId) errors.push('Service ID is required');
+    else if (!settings.serviceId.startsWith('service_')) warnings.push('Service ID should start with "service_"');
+    
+    if (!settings.templateId) errors.push('Template ID is required');
+    else if (!settings.templateId.startsWith('template_')) warnings.push('Template ID should start with "template_"');
+    
+    if (!settings.publicKey) errors.push('Public Key is required');
+    else if (!settings.publicKey.startsWith('user_')) warnings.push('Public Key should start with "user_"');
+    
+    if (!settings.fromEmail) errors.push('From Email is required');
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.fromEmail)) errors.push('Invalid email format');
+    
+    if (!settings.fromName) warnings.push('From Name is recommended for better email appearance');
+    
+    return { isValid: errors.length === 0, errors, warnings };
+  };
+
+  const validateTelegramConfig = (settings: TelegramSettings) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    if (!settings.botToken) errors.push('Bot Token is required');
+    else if (!settings.botToken.includes(':')) warnings.push('Bot Token format seems incorrect');
+    
+    if (!settings.chatId) errors.push('Chat ID is required');
+    
+    return { isValid: errors.length === 0, errors, warnings };
+  };
+
+  // Update validation when settings change
+  useEffect(() => {
+    setConfigValidation({
+      email: validateEmailConfig(emailSettings),
+      telegram: validateTelegramConfig(telegramSettings)
+    });
+  }, [emailSettings, telegramSettings]);
+
+  // Initialize test email with fromEmail when available
+  useEffect(() => {
+    if (emailSettings.fromEmail && !testEmail) {
+      setTestEmail(emailSettings.fromEmail);
+    }
+  }, [emailSettings.fromEmail]);
+
   const handleTestEmail = async () => {
     if (!emailSettings.serviceId || !emailSettings.templateId || !emailSettings.publicKey) {
       toast({
@@ -43,30 +113,101 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       return;
     }
 
+    if (!testEmail) {
+      toast({
+        title: "Test Email Required",
+        description: "Please enter a test email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(testEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setTestingEmail(true);
+    
+    // Template parameters we're sending
+    let templateParams;
+    
+    if (useUltraSimple) {
+      // Ultra simple - absolute minimum
+      templateParams = {
+        user_name: 'Test User',
+        user_email: testEmail,
+        message: 'Hello! This is a test email.'
+      };
+    } else if (useSimpleTemplate) {
+      // Simple template - only basic variables
+      templateParams = {
+        to_name: 'Test User',
+        to_email: testEmail,
+        from_name: emailSettings.fromName || 'Fleet Management System',
+        message: 'Ini adalah test email untuk memastikan konfigurasi EmailJS berfungsi dengan baik. Jika Anda menerima email ini, maka konfigurasi sudah benar.'
+      };
+    } else {
+      // Full template - all variables
+      templateParams = {
+        to_name: 'Test User',
+        to_email: testEmail,
+        from_name: emailSettings.fromName || 'Fleet Management System',
+        message: 'Ini adalah test email untuk memastikan konfigurasi EmailJS berfungsi dengan baik. Jika Anda menerima email ini, maka konfigurasi sudah benar.',
+        vehicle: 'B 1234 TEST',
+        days: '7',
+        date: new Date().toLocaleDateString('id-ID'),
+        title: 'Test Reminder',
+        company: 'Fleet Management System'
+      };
+    }
+
+    // Debug: Log what we're sending
+    console.log('EmailJS Parameters being sent:', templateParams);
+    console.log('Service ID:', emailSettings.serviceId);
+    console.log('Template ID:', emailSettings.templateId);
+    
     try {
       await emailjs.send(
         emailSettings.serviceId,
         emailSettings.templateId,
-        {
-          to_email: emailSettings.fromEmail,
-          to_name: 'Test User',
-          subject: 'Test Email dari Fleet Management System',
-          message: 'Ini adalah test email untuk memastikan konfigurasi SMTP berfungsi dengan baik.',
-          from_name: emailSettings.fromName,
-          from_email: emailSettings.fromEmail
-        },
+        templateParams,
         emailSettings.publicKey
       );
 
       toast({
         title: "Test Email Sent",
-        description: "Test email berhasil dikirim. Periksa inbox Anda.",
+        description: `Test email berhasil dikirim ke ${testEmail}. Periksa inbox Anda.`,
       });
     } catch (error: any) {
+      // Enhanced error logging
+      console.error('EmailJS Error Details:', error);
+      console.error('Error Status:', error.status);
+      console.error('Error Text:', error.text);
+      console.error('Full Error Object:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error.status === 422) {
+        errorMessage = `Template Error (422): ${error.text || 'Template parameters mismatch. Check your EmailJS template variables.'}`;
+      } else if (error.status === 400) {
+        errorMessage = `Configuration Error (400): ${error.text || 'Invalid Service ID, Template ID, or Public Key.'}`;
+      } else if (error.status === 401) {
+        errorMessage = `Authentication Error (401): ${error.text || 'Invalid Public Key or service not accessible.'}`;
+      } else if (error.text) {
+        errorMessage = `EmailJS Error: ${error.text}`;
+      } else if (error.message) {
+        errorMessage = `Network Error: ${error.message}`;
+      }
+
       toast({
         title: "Test Email Failed",
-        description: `Gagal mengirim test email: ${error.text || error.message}`,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -115,6 +256,40 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       });
     } finally {
       setTestingTelegram(false);
+    }
+  };
+
+  const handleSaveWhatsApp = () => {
+    localStorageService.saveWhatsAppSettings({
+      enabled: waEnabled,
+      api_key: waApiKey,
+      sender: waSender
+    });
+    setWaSaved(true);
+    setTimeout(() => setWaSaved(false), 2000);
+  };
+
+  const handleTestWhatsApp = async () => {
+    setWaTestStatus('sending');
+    setWaTestMessage("");
+    try {
+      // Use test recipient if set, otherwise sender
+      const targetNumber = waTestRecipient.trim() || waSender;
+      const result = await reminderService.sendWhatsApp(
+        targetNumber,
+        'Ini adalah pesan tes WhatsApp dari Armada Pintar.',
+        'test-wa-settings'
+      );
+      if (result.success) {
+        setWaTestStatus('success');
+        setWaTestMessage('Pesan tes berhasil dikirim ke WhatsApp ' + targetNumber + '!');
+      } else {
+        setWaTestStatus('error');
+        setWaTestMessage('Gagal mengirim pesan tes: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      setWaTestStatus('error');
+      setWaTestMessage('Gagal mengirim pesan tes: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -249,9 +424,14 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="email">Email Settings</TabsTrigger>
+              <TabsTrigger value="setup-guide" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Setup Guide
+              </TabsTrigger>
               <TabsTrigger value="telegram">Telegram Settings</TabsTrigger>
+              <TabsTrigger value="whatsapp">WhatsApp Settings</TabsTrigger>
               <TabsTrigger value="general">General Settings</TabsTrigger>
             </TabsList>
             
@@ -259,23 +439,87 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
               <TabsContent value="email" className="mt-0 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold">Konfigurasi EmailJS</h3>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      Konfigurasi EmailJS
+                      {configValidation.email.isValid ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                      )}
+                    </h3>
                     <p className="text-sm text-gray-600">Setup EmailJS untuk mengirim email reminder</p>
                   </div>
-                  <Switch
-                    checked={emailSettings.enabled}
-                    onCheckedChange={(checked) => setEmailSettings({ ...emailSettings, enabled: checked })}
-                  />
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowSetupGuide(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                      Need Help?
+                    </Button>
+                    <Switch
+                      checked={emailSettings.enabled}
+                      onCheckedChange={(checked) => setEmailSettings({ ...emailSettings, enabled: checked })}
+                    />
+                  </div>
                 </div>
 
+                {/* Configuration Status */}
+                {configValidation.email.errors.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Configuration Errors:</strong>
+                      <ul className="list-disc list-inside mt-1">
+                        {configValidation.email.errors.map((error, index) => (
+                          <li key={index}>{error}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {configValidation.email.warnings.length > 0 && configValidation.email.errors.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Configuration Warnings:</strong>
+                      <ul className="list-disc list-inside mt-1">
+                        {configValidation.email.warnings.map((warning, index) => (
+                          <li key={index}>{warning}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">📧 Setup EmailJS:</h4>
+                  <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    📧 Quick Setup:
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="text-blue-900 p-0 h-auto font-normal underline"
+                      onClick={() => setShowSetupGuide(true)}
+                    >
+                      View Detailed Guide
+                    </Button>
+                  </h4>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                    <li>Daftar di <a href="https://emailjs.com" target="_blank" className="underline">EmailJS.com</a></li>
-                    <li>Buat Email Service (Gmail, Outlook, dll)</li>
-                    <li>Buat Email Template dengan variables: to_email, to_name, subject, message, from_name</li>
-                    <li>Copy Service ID, Template ID, dan Public Key</li>
+                    <li>Create account at <a href="https://emailjs.com" target="_blank" className="underline">EmailJS.com</a></li>
+                    <li>Setup email service (Gmail recommended)</li>
+                    <li>Create template with our standardized variables</li>
+                    <li>Get credentials and test connection</li>
                   </ol>
+                  
+                  <div className="mt-3 p-2 bg-white rounded border">
+                    <p className="text-xs font-semibold text-blue-900 mb-1">Required Template Variables:</p>
+                    <p className="text-xs text-blue-800 font-mono">
+                      {`{{to_name}}, {{to_email}}, {{from_name}}, {{message}}, {{vehicle}}, {{days}}, {{date}}, {{title}}, {{company}}`}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -338,14 +582,109 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={handleTestEmail} 
-                  disabled={testingEmail}
-                  className="flex items-center gap-2"
-                >
-                  <TestTube className="h-4 w-4" />
-                  {testingEmail ? 'Mengirim Test Email...' : 'Test Email Connection'}
-                </Button>
+                {/* Test Email Section */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">📧 Test Email Configuration</h4>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="testEmail">Test Email Address *</Label>
+                    <Input
+                      id="testEmail"
+                      type="email"
+                      value={testEmail}
+                      onChange={(e) => setTestEmail(e.target.value)}
+                      placeholder="your.email@example.com"
+                      className="bg-white"
+                    />
+                    <p className="text-xs text-blue-700">
+                      Masukkan email tujuan untuk menguji konfigurasi EmailJS
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2 p-3 bg-white rounded border">
+                      <Switch
+                        id="ultra-simple"
+                        checked={useUltraSimple}
+                        onCheckedChange={(checked) => {
+                          setUseUltraSimple(checked);
+                          if (checked) setUseSimpleTemplate(false);
+                        }}
+                      />
+                      <Label htmlFor="ultra-simple" className="text-sm">
+                        Use Ultra Simple Template (Debug Mode)
+                      </Label>
+                    </div>
+                    
+                    {!useUltraSimple && (
+                      <div className="flex items-center space-x-2 p-3 bg-white rounded border">
+                        <Switch
+                          id="simple-template"
+                          checked={useSimpleTemplate}
+                          onCheckedChange={setUseSimpleTemplate}
+                        />
+                        <Label htmlFor="simple-template" className="text-sm">
+                          Use Simple Template (Recommended for first test)
+                        </Label>
+                      </div>
+                    )}
+                  </div>
+
+                  {useUltraSimple && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded">
+                      <p className="text-xs font-semibold text-red-900 mb-1">🔧 Ultra Simple Template (Debug):</p>
+                      <div className="text-xs text-red-800 font-mono bg-white p-2 rounded">
+                        <p><strong>Subject:</strong> Test</p>
+                        <p><strong>Body:</strong></p>
+                        <p>Hello {`{{user_name}}`},</p>
+                        <p>{`{{message}}`}</p>
+                        <p>Sent to: {`{{user_email}}`}</p>
+                      </div>
+                      <p className="text-xs text-red-700 mt-2">⚠️ Use ONLY these 3 variables: user_name, user_email, message</p>
+                    </div>
+                  )}
+
+                  {useSimpleTemplate && !useUltraSimple && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-xs font-semibold text-yellow-900 mb-1">Simple Template Format:</p>
+                      <div className="text-xs text-yellow-800 font-mono bg-white p-2 rounded">
+                        <p><strong>Subject:</strong> Test Email</p>
+                        <p><strong>Body:</strong></p>
+                        <p>Hello {`{{to_name}}`},</p>
+                        <p>{`{{message}}`}</p>
+                        <p>From: {`{{from_name}}`}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {!useSimpleTemplate && !useUltraSimple && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded">
+                      <p className="text-xs font-semibold text-green-900 mb-1">Full Template Format:</p>
+                      <div className="text-xs text-green-800 font-mono bg-white p-2 rounded">
+                        <p><strong>Subject:</strong> {`{{title}} - Vehicle {{vehicle}}`}</p>
+                        <p><strong>Body:</strong></p>
+                        <p>Hello {`{{to_name}}`},</p>
+                        <p>{`{{message}}`}</p>
+                        <p>Vehicle: {`{{vehicle}}`} | Days: {`{{days}}`} | Date: {`{{date}}`}</p>
+                        <p>From: {`{{from_name}}`}, {`{{company}}`}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handleTestEmail} 
+                    disabled={testingEmail || !testEmail}
+                    className="flex items-center gap-2"
+                  >
+                    <TestTube className="h-4 w-4" />
+                    {testingEmail ? 'Mengirim Test Email...' : `Test ${useUltraSimple ? 'Ultra Simple' : useSimpleTemplate ? 'Simple' : 'Full'} Template`}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Setup Guide Tab */}
+              <TabsContent value="setup-guide" className="mt-0">
+                <EmailJSSetupGuide />
               </TabsContent>
 
               <TabsContent value="telegram" className="mt-0 space-y-6">
@@ -401,6 +740,67 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                   <TestTube className="h-4 w-4" />
                   {testingTelegram ? 'Mengirim Test Message...' : 'Test Telegram Connection'}
                 </Button>
+              </TabsContent>
+
+              <TabsContent value="whatsapp" className="mt-0 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      Konfigurasi WhatsApp Reminder
+                      {waEnabled && waApiKey && waSender ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                      )}
+                    </h3>
+                    <p className="text-sm text-gray-600">Setup WhatsApp untuk mengirim pengingat otomatis via Zapin API</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={waEnabled}
+                      onCheckedChange={setWaEnabled}
+                    />
+                    <Button variant="outline" size="sm" onClick={handleSaveWhatsApp}>
+                      Simpan
+                    </Button>
+                    {waSaved && <span className="text-green-600 text-xs ml-2">Tersimpan!</span>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="waApiKey">API Key *</Label>
+                    <Input
+                      id="waApiKey"
+                      value={waApiKey}
+                      onChange={e => setWaApiKey(e.target.value)}
+                      placeholder="API Key dari Zapin"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="waSender">Sender Number *</Label>
+                    <Input
+                      id="waSender"
+                      value={waSender}
+                      onChange={e => setWaSender(e.target.value)}
+                      placeholder="628xxxxxxxxxx"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 md:w-1/2">
+                  <Label htmlFor="waTestRecipient">Test Recipient (WhatsApp Number)</Label>
+                  <Input
+                    id="waTestRecipient"
+                    value={waTestRecipient}
+                    onChange={e => setWaTestRecipient(e.target.value)}
+                    placeholder="628xxxxxxxxxx"
+                  />
+                  <Button variant="default" className="mt-2" onClick={handleTestWhatsApp} disabled={waTestStatus === 'sending'}>
+                    {waTestStatus === 'sending' ? 'Mengirim...' : 'Kirim Pesan Tes'}
+                  </Button>
+                  {waTestStatus !== 'idle' && (
+                    <div className={`mt-2 text-sm ${waTestStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>{waTestMessage}</div>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="general" className="mt-0 space-y-6">

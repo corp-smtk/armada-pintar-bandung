@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { BarChart3, Truck, FileText, Wrench, DollarSign, Bell, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,10 @@ import { Button } from '@/components/ui/button';
 interface NavigationProps {
   activeModule: string;
   setActiveModule: (module: string) => void;
+  onLogout: () => void;
 }
 
-const Navigation = ({ activeModule, setActiveModule }: NavigationProps) => {
+const Navigation = ({ activeModule, setActiveModule, onLogout }: NavigationProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigationItems = [
@@ -33,13 +33,13 @@ const Navigation = ({ activeModule, setActiveModule }: NavigationProps) => {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
               <Truck className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mr-2" />
-              <span className="text-lg sm:text-xl font-bold text-gray-900 hidden xs:block">Fleet Manager</span>
-              <span className="text-lg sm:text-xl font-bold text-gray-900 block xs:hidden">FM</span>
+              <span className="text-lg sm:text-xl font-bold text-gray-900 hidden xs:block">GasTrax</span>
+              <span className="text-lg sm:text-xl font-bold text-gray-900 block xs:hidden">GasTrax</span>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex lg:space-x-2 xl:space-x-4">
+          <div className="hidden lg:flex lg:items-center lg:space-x-2 xl:space-x-4">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -57,6 +57,10 @@ const Navigation = ({ activeModule, setActiveModule }: NavigationProps) => {
                 </button>
               );
             })}
+            {/* Separator */}
+            <div className="h-6 w-px bg-gray-200 mx-2" />
+            {/* Logout Button */}
+            <Button onClick={onLogout} variant="outline" size="sm" className="ml-2">Logout</Button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -101,6 +105,10 @@ const Navigation = ({ activeModule, setActiveModule }: NavigationProps) => {
               </button>
             );
           })}
+          {/* Separator */}
+          <div className="border-t border-gray-200 my-2" />
+          {/* Logout Button */}
+          <Button onClick={onLogout} variant="outline" size="sm" className="w-full">Logout</Button>
         </div>
       </div>
     </nav>

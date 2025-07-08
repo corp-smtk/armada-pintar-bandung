@@ -1,90 +1,34 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Mail, MessageCircle, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { useReminderService } from './ReminderService';
 
 const ReminderLogs = () => {
+  const reminderService = useReminderService();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [channelFilter, setChannelFilter] = useState('all');
+  const [reminderFilter, setReminderFilter] = useState('all');
+  const [deliveryLogs, setDeliveryLogs] = useState<any[]>([]);
 
-  // Mock delivery logs data
-  const deliveryLogs = [
-    {
-      id: 1,
-      reminderId: 1,
-      reminderTitle: 'Service Rutin - B 1234 AB',
-      recipient: 'fleet@company.com',
-      channel: 'email',
-      status: 'delivered',
-      sentAt: '2024-12-28 08:00:15',
-      deliveredAt: '2024-12-28 08:00:22',
-      subject: 'Reminder: Service Kendaraan B 1234 AB',
-      message: 'Kendaraan B 1234 AB perlu service dalam 7 hari. Jadwal: 2025-01-15',
-      attempts: 1,
-      errorMessage: null
-    },
-    {
-      id: 2,
-      reminderId: 1,
-      reminderTitle: 'Service Rutin - B 1234 AB',
-      recipient: '@johndoe',
-      channel: 'telegram',
-      status: 'delivered',
-      sentAt: '2024-12-28 08:00:15',
-      deliveredAt: '2024-12-28 08:00:18',
-      subject: null,
-      message: '🚛 Reminder: Kendaraan B 1234 AB perlu service dalam 7 hari. Jadwal: 15 Januari 2025',
-      attempts: 1,
-      errorMessage: null
-    },
-    {
-      id: 3,
-      reminderId: 2,
-      reminderTitle: 'STNK Kadaluarsa - B 5678 CD',
-      recipient: 'admin@company.com',
-      channel: 'email',
-      status: 'failed',
-      sentAt: '2024-12-27 08:00:10',
-      deliveredAt: null,
-      subject: 'URGENT: STNK Kendaraan B 5678 CD Akan Kadaluarsa',
-      message: 'STNK kendaraan B 5678 CD akan kadaluarsa dalam 30 hari. Tanggal: 2025-02-20',
-      attempts: 3,
-      errorMessage: 'SMTP authentication failed'
-    },
-    {
-      id: 4,
-      reminderId: 3,
-      reminderTitle: 'KIR Renewal - B 9101 EF',
-      recipient: '@fleetmanager',
-      channel: 'telegram',
-      status: 'pending',
-      sentAt: '2024-12-28 07:45:00',
-      deliveredAt: null,
-      subject: null,
-      message: '📋 KIR kendaraan B 9101 EF akan kadaluarsa dalam 15 hari. Tanggal: 01 Maret 2025',
-      attempts: 2,
-      errorMessage: 'Telegram API rate limit exceeded'
-    },
-    {
-      id: 5,
-      reminderId: 1,
-      reminderTitle: 'Service Rutin - B 1234 AB',
-      recipient: 'driver1@company.com',
-      channel: 'email',
-      status: 'delivered',
-      sentAt: '2024-12-21 08:00:30',
-      deliveredAt: '2024-12-21 08:00:35',
-      subject: 'Reminder: Service Kendaraan B 1234 AB',
-      message: 'Kendaraan B 1234 AB perlu service dalam 14 hari. Jadwal: 2025-01-15',
-      attempts: 1,
-      errorMessage: null
+  useEffect(() => {
+    setDeliveryLogs(reminderService.getDeliveryLogs());
+  }, []);
+
+  const allReminders = Array.from(new Set(deliveryLogs.map(log => log.reminderTitle)));
+
+  const handleRetry = async (log: any) => {
+    const reminder = reminderService.getReminderConfigs().find(r => r.id === log.reminderId);
+    if (reminder) {
+      await reminderService.sendReminder(reminder);
+      setDeliveryLogs(reminderService.getDeliveryLogs());
     }
-  ];
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -113,15 +57,14 @@ const ReminderLogs = () => {
   };
 
   const filteredLogs = deliveryLogs.filter(log => {
-    const matchesSearch = 
+    const matchesSearch =
       log.reminderTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.message.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
     const matchesChannel = channelFilter === 'all' || log.channel === channelFilter;
-    
-    return matchesSearch && matchesStatus && matchesChannel;
+    const matchesReminder = reminderFilter === 'all' || log.reminderTitle === reminderFilter;
+    return matchesSearch && matchesStatus && matchesChannel && matchesReminder;
   });
 
   const exportLogs = () => {
@@ -198,11 +141,33 @@ const ReminderLogs = () => {
             placeholder="Cari berdasarkan reminder, penerima, atau pesan..."
             className="pl-10"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
+        <Select value={reminderFilter} onValueChange={setReminderFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filter Reminder" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Reminder</SelectItem>
+            {allReminders.map(title => (
+              <SelectItem key={title} value={title}>{title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={channelFilter} onValueChange={setChannelFilter}>
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="Channel" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Channel</SelectItem>
+            <SelectItem value="email">Email</SelectItem>
+            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            <SelectItem value="telegram">Telegram</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-32">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -212,85 +177,58 @@ const ReminderLogs = () => {
             <SelectItem value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={channelFilter} onValueChange={setChannelFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Channel" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Channel</SelectItem>
-            <SelectItem value="email">Email</SelectItem>
-            <SelectItem value="telegram">Telegram</SelectItem>
-          </SelectContent>
-        </Select>
         <Button variant="outline" onClick={exportLogs} className="flex items-center gap-2">
           <Download className="h-4 w-4" />
           Export
         </Button>
       </div>
 
-      {/* Delivery Logs */}
-      <div className="space-y-4">
-        {filteredLogs.map((log) => (
-          <Card key={log.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    {getStatusIcon(log.status)}
-                    <h3 className="font-semibold">{log.reminderTitle}</h3>
-                    <Badge className={getStatusBadge(log.status)}>
-                      {log.status === 'delivered' ? 'Terkirim' : 
-                       log.status === 'failed' ? 'Gagal' : 'Pending'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {getChannelIcon(log.channel)}
-                        <span className="font-medium">
-                          {log.channel === 'email' ? 'Email' : 'Telegram'}
-                        </span>
-                        <span>→ {log.recipient}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Dikirim:</span> {log.sentAt}
-                      </div>
-                      {log.deliveredAt && (
-                        <div>
-                          <span className="font-medium">Terkirim:</span> {log.deliveredAt}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <div>
-                        <span className="font-medium">Percobaan:</span> {log.attempts}
-                      </div>
-                      {log.subject && (
-                        <div>
-                          <span className="font-medium">Subject:</span> {log.subject}
-                        </div>
-                      )}
-                      {log.errorMessage && (
-                        <div className="text-red-600">
-                          <span className="font-medium">Error:</span> {log.errorMessage}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">Pesan:</span>
-                      <p className="mt-1 text-gray-600">{log.message}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Log Table */}
+      <div className="overflow-x-auto mt-4">
+        <table className="w-full text-xs border">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="p-2 text-left">Date/Time</th>
+              <th className="p-2 text-left">Reminder</th>
+              <th className="p-2 text-left">Channel</th>
+              <th className="p-2 text-left">Recipient</th>
+              <th className="p-2 text-left">Status</th>
+              <th className="p-2 text-left">Error</th>
+              <th className="p-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredLogs.map((log, idx) => (
+              <tr key={idx} className="border-t">
+                <td className="p-2">{log.sentAt ? new Date(log.sentAt).toLocaleString('id-ID') : '-'}</td>
+                <td className="p-2">{log.reminderTitle}</td>
+                <td className="p-2">{log.channel}</td>
+                <td className="p-2">{log.recipient}</td>
+                <td className="p-2">
+                  <span className={
+                    log.status === 'delivered' ? 'text-green-600' :
+                    log.status === 'failed' ? 'text-red-600' :
+                    'text-gray-600'
+                  }>
+                    {log.status}
+                  </span>
+                </td>
+                <td className="p-2 text-xs text-red-600">{log.errorMessage || '-'}</td>
+                <td className="p-2">
+                  {log.status === 'failed' && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => handleRetry(log)}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {filteredLogs.length === 0 && (

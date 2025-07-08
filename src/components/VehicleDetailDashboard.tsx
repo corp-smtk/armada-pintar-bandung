@@ -28,7 +28,7 @@ import { localStorageService, MaintenanceRecord, OperationalCost, Document } fro
 
 interface VehicleDetailDashboardProps {
   vehicle: {
-    id: number;
+    id: string;
     platNomor: string;
     jenisKendaraan: string;
     merek: string;
@@ -59,10 +59,14 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
   const loadVehicleData = () => {
     setLoading(true);
     try {
-      const vehicleId = vehicle.id.toString();
+      const vehicleId = vehicle.id; // No need to convert to string
+      console.log('Loading data for vehicle ID:', vehicleId); // Debug log
+      
       const maintenance = localStorageService.getMaintenanceByVehicle(vehicleId);
       const costs = localStorageService.getCostsByVehicle(vehicleId);
       const docs = localStorageService.getDocumentsByVehicle(vehicleId);
+      
+      console.log('Loaded data:', { maintenance: maintenance.length, costs: costs.length, docs: docs.length }); // Debug log
       
       setMaintenanceRecords(maintenance);
       setOperationalCosts(costs);
@@ -84,7 +88,7 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
     if (onNavigate) {
       onNavigate('maintenance', { 
         action: 'schedule',
-        vehicleId: vehicle.id.toString(),
+        vehicleId: vehicle.id,
         platNomor: vehicle.platNomor 
       });
       toast({
@@ -325,7 +329,7 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
           <p className="text-gray-600">{vehicle.merek} {vehicle.model} ({vehicle.tahunPembuatan})</p>
         </div>
         <VehicleHealthIndicator
-          vehicleId={vehicle.id.toString()}
+          vehicleId={vehicle.id}
           kmTempuh={vehicleDetails.kmTerakhir}
           tahunPembuatan={vehicle.tahunPembuatan}
           lastServiceDays={vehicleDetails.lastServiceDate ? 
@@ -591,7 +595,7 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                                 <p className="text-xs text-gray-500">{data.count} aktivitas</p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold text-sm">Rp {data.totalCost.toLocaleString('id-ID')}</p>
+                                <p className="font-semibold text-sm">Rp {(data.totalCost ?? 0).toLocaleString('id-ID')}</p>
                                 <p className="text-xs text-gray-500">
                                   {activityData.summary.totalCost > 0 ? 
                                     Math.round((data.totalCost / activityData.summary.totalCost) * 100) : 0}%
@@ -632,7 +636,7 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                               </div>
                               <div className="text-right">
                                 <p className="font-semibold text-sm">
-                                  Rp {activity.cost.toLocaleString('id-ID')}
+                                  Rp {(activity.cost ?? 0).toLocaleString('id-ID')}
                                 </p>
                                 <Badge variant={activity.type === 'maintenance' ? 'destructive' : 'secondary'} className="text-xs">
                                   {activity.type === 'maintenance' ? 'Maintenance' : 'Operasional'}

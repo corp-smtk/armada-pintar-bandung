@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Truck, 
   FileText, 
@@ -19,32 +19,138 @@ import DocumentManagement from '@/components/DocumentManagement';
 import MaintenanceManagement from '@/components/MaintenanceManagement';
 import CostReporting from '@/components/CostReporting';
 import ReminderManagement from '@/components/ReminderManagement';
+import { localStorageService, Vehicle, Document, MaintenanceRecord, OperationalCost } from '@/services/LocalStorageService';
+import Login from '@/components/Login';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [operationalCosts, setOperationalCosts] = useState<OperationalCost[]>([]);
+  const [sessionUser, setSessionUser] = useState<string | null>(localStorage.getItem('session_user'));
 
-  // Mock data for dashboard
-  const dashboardStats = {
-    activeVehicles: 12,
-    inactiveVehicles: 2,
-    nearingService: 3,
-    expiringDocuments: 5,
-    monthlyOperationalCost: 45250000
+  useEffect(() => {
+    if (sessionUser) {
+      loadDashboardData();
+    }
+  }, [activeModule, sessionUser]);
+
+  const handleLogin = (username: string) => {
+    localStorage.setItem('session_user', username);
+    setSessionUser(username);
   };
 
-  const nearingServiceVehicles = [
-    { platNomor: 'B 1234 AB', jenisKendaraan: 'Truk', servisTerakhir: '2024-05-15', kmTerakhir: 48500 },
-    { platNomor: 'B 5678 CD', jenisKendaraan: 'Pickup', servisTerakhir: '2024-05-20', kmTerakhir: 35200 },
-    { platNomor: 'B 9101 EF', jenisKendaraan: 'Truk', servisTerakhir: '2024-05-10', kmTerakhir: 52000 }
-  ];
+  const handleLogout = () => {
+    localStorage.removeItem('session_user');
+    setSessionUser(null);
+  };
 
-  const expiringDocuments = [
-    { dokumen: 'STNK', platNomor: 'B 1234 AB', tanggalKadaluarsa: '2025-01-15', hariTersisa: 19 },
-    { dokumen: 'KIR', platNomor: 'B 5678 CD', tanggalKadaluarsa: '2025-01-20', hariTersisa: 24 },
-    { dokumen: 'Asuransi', platNomor: 'B 9101 EF', tanggalKadaluarsa: '2025-01-10', hariTersisa: 14 },
-    { dokumen: 'SIM Driver', platNomor: 'B 2345 GH', tanggalKadaluarsa: '2025-01-25', hariTersisa: 29 },
-    { dokumen: 'Sertifikat LPG', platNomor: 'B 6789 IJ', tanggalKadaluarsa: '2025-01-08', hariTersisa: 12 }
-  ];
+  if (!sessionUser) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  const loadDashboardData = () => {
+    // Load data from local storage
+    const loadedVehicles = localStorageService.getVehicles();
+    const loadedDocuments = localStorageService.getDocuments();
+    const loadedMaintenance = localStorageService.getMaintenanceRecords();
+    const loadedCosts = localStorageService.getOperationalCosts();
+
+    // Update document statuses based on current date
+    const updatedDocuments = loadedDocuments.map(doc => {
+      const hariTersisa = calculateDaysRemaining(doc.tanggalKadaluarsa);
+      const status = calculateDocumentStatus(hariTersisa);
+      if (doc.hariTersisa !== hariTersisa || doc.status !== status) {
+        localStorageService.updateDocument(doc.id, { hariTersisa, status });
+        return { ...doc, hariTersisa, status };
+      }
+      return doc;
+    });
+
+    setVehicles(loadedVehicles);
+    setDocuments(updatedDocuments);
+    setMaintenanceRecords(loadedMaintenance);
+    setOperationalCosts(loadedCosts);
+  };
+
+  const calculateDaysRemaining = (expiryDate: string): number => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const calculateDocumentStatus = (daysRemaining: number): 'Valid' | 'Akan Kadaluarsa' | 'Kritis' | 'Kadaluarsa' => {
+    if (daysRemaining < 0) return 'Kadaluarsa';
+    if (daysRemaining <= 14) return 'Kritis';
+    if (daysRemaining <= 30) return 'Akan Kadaluarsa';
+    return 'Valid';
+  };
+
+  // Calculate dashboard statistics from real data
+  const dashboardStats = {
+    activeVehicles: vehicles.filter(v => v.status === 'Aktif').length,
+    inactiveVehicles: vehicles.filter(v => v.status !== 'Aktif').length,
+    nearingService: vehicles.filter(v => {
+      // Check if vehicle needs service based on next service date or maintenance records
+      if (v.servisBerikutnya) {
+        const nextServiceDate = new Date(v.servisBerikutnya);
+        const today = new Date();
+        const daysUntilService = Math.ceil((nextServiceDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntilService <= 30 && daysUntilService >= 0;
+      }
+      return false;
+    }).length,
+    expiringDocuments: documents.filter(doc => doc.hariTersisa <= 30 && doc.hariTersisa > 0).length,
+    monthlyOperationalCost: operationalCosts
+      .filter(cost => {
+        const costDate = new Date(cost.tanggal);
+        const now = new Date();
+        return costDate.getMonth() === now.getMonth() && costDate.getFullYear() === now.getFullYear();
+      })
+      .reduce((total, cost) => total + cost.jumlah, 0)
+  };
+
+  // Get vehicles nearing service from real data
+  const nearingServiceVehicles = vehicles
+    .filter(v => {
+      if (v.servisBerikutnya) {
+        const nextServiceDate = new Date(v.servisBerikutnya);
+        const today = new Date();
+        const daysUntilService = Math.ceil((nextServiceDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntilService <= 30 && daysUntilService >= 0;
+      }
+      return false;
+    })
+    .map(v => {
+      // Get latest maintenance record for this vehicle
+      const latestMaintenance = maintenanceRecords
+        .filter(m => m.vehicleId === v.id)
+        .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime())[0];
+
+      return {
+        platNomor: v.platNomor,
+        jenisKendaraan: v.jenisKendaraan,
+        servisTerakhir: latestMaintenance?.tanggal || 'Belum ada data',
+        kmTerakhir: latestMaintenance?.kilometer || 0,
+        servisBerikutnya: v.servisBerikutnya || '',
+        daysUntilService: v.servisBerikutnya ? Math.ceil((new Date(v.servisBerikutnya).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0
+      };
+    })
+    .slice(0, 5); // Show only first 5
+
+  // Get expiring documents from real data
+  const expiringDocuments = documents
+    .filter(doc => doc.hariTersisa <= 30 && doc.hariTersisa > 0)
+    .sort((a, b) => a.hariTersisa - b.hariTersisa)
+    .slice(0, 5) // Show only first 5
+    .map(doc => ({
+      dokumen: doc.jenisDokumen,
+      platNomor: doc.platNomor,
+      tanggalKadaluarsa: doc.tanggalKadaluarsa,
+      hariTersisa: doc.hariTersisa
+    }));
 
   const renderDashboard = () => (
     <div className="space-y-4 sm:space-y-6">
@@ -145,19 +251,27 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3">
-              {nearingServiceVehicles.map((vehicle, index) => (
+              {nearingServiceVehicles.length > 0 ? nearingServiceVehicles.map((vehicle, index) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-orange-50 rounded-lg gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-sm sm:text-base truncate">{vehicle.platNomor}</div>
                     <div className="text-xs sm:text-sm text-gray-600">
                       {vehicle.jenisKendaraan} • KM: {vehicle.kmTerakhir.toLocaleString('id-ID')}
                     </div>
+                    <div className="text-xs text-gray-500">
+                      Terakhir servis: {vehicle.servisTerakhir}
+                    </div>
                   </div>
                   <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs shrink-0">
-                    Servis: {vehicle.servisTerakhir}
+                    {vehicle.daysUntilService} hari lagi
                   </Badge>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-4 text-gray-500">
+                  <Wrench className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Tidak ada kendaraan yang mendekati jadwal servis</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -172,11 +286,14 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3">
-              {expiringDocuments.map((doc, index) => (
+              {expiringDocuments.length > 0 ? expiringDocuments.map((doc, index) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-red-50 rounded-lg gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-sm sm:text-base truncate">{doc.dokumen}</div>
                     <div className="text-xs sm:text-sm text-gray-600 truncate">{doc.platNomor}</div>
+                    <div className="text-xs text-gray-500">
+                      Kadaluarsa: {doc.tanggalKadaluarsa}
+                    </div>
                   </div>
                   <Badge 
                     variant="outline" 
@@ -189,7 +306,12 @@ const Index = () => {
                     {doc.hariTersisa} hari lagi
                   </Badge>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-4 text-gray-500">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Tidak ada dokumen yang mendekati kadaluarsa</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -222,7 +344,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation activeModule={activeModule} setActiveModule={setActiveModule} />
+      <Navigation activeModule={activeModule} setActiveModule={setActiveModule} onLogout={handleLogout} />
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
         {renderActiveModule()}
       </main>

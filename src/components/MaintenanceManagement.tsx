@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Calendar, Wrench, Plus, Clock, AlertCircle, Trash2, Edit, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { localStorageService, MaintenanceRecord, Vehicle } from '@/services/LocalStorageService';
+import { reminderService } from './ReminderService';
 
 // Types for form data
 interface ScheduleFormData {
@@ -31,12 +32,12 @@ interface RepairFormData {
   jenisPerbaikan: string;
   deskripsi: string;
   biayaJasa: string;
-  totalBiaya: string;
   bengkel: string;
   nomorFaktur: string;
 }
 
 interface SparePart {
+  id: string;
   nama: string;
   jumlah: number;
   harga: number;
@@ -45,6 +46,423 @@ interface SparePart {
 interface FormErrors {
   [key: string]: string;
 }
+
+// Separate ScheduleForm component to prevent re-creation on parent re-renders
+interface ScheduleFormProps {
+  formData: ScheduleFormData;
+  vehicles: Vehicle[];
+  editMode: boolean;
+  submitting: boolean;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onSelectChange: (field: keyof ScheduleFormData, value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}
+
+const ScheduleForm = memo<ScheduleFormProps>(({
+  formData,
+  vehicles,
+  editMode,
+  submitting,
+  onInputChange,
+  onSelectChange,
+  onSubmit,
+  onCancel
+}) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>{editMode ? 'Edit Jadwal Perawatan' : 'Jadwal Perawatan Preventif'}</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <form onSubmit={onSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="pilihKendaraan">Pilih Kendaraan *</Label>
+            <Select 
+              value={formData.vehicleId} 
+              onValueChange={(value) => onSelectChange('vehicleId', value)}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih kendaraan untuk dijadwalkan" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicles.map((vehicle) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id}>
+                    {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="jenisServis">Jenis Servis *</Label>
+            <Select 
+              value={formData.jenisServis} 
+              onValueChange={(value) => onSelectChange('jenisServis', value)}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih jenis servis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Servis Rutin">Servis Rutin</SelectItem>
+                <SelectItem value="Ganti Oli">Ganti Oli</SelectItem>
+                <SelectItem value="Tune Up">Tune Up</SelectItem>
+                <SelectItem value="Cek Sistem Rem">Cek Sistem Rem</SelectItem>
+                <SelectItem value="Ganti Ban">Ganti Ban</SelectItem>
+                <SelectItem value="Servis AC">Servis AC</SelectItem>
+                <SelectItem value="Lainnya">Lainnya</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="intervalKm">Interval KM</Label>
+            <Input 
+              id="intervalKm" 
+              name="intervalKm"
+              type="number" 
+              placeholder="Setiap berapa KM (contoh: 5000)" 
+              value={formData.intervalKm}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="intervalBulan">Interval Bulan</Label>
+            <Input 
+              id="intervalBulan" 
+              name="intervalBulan"
+              type="number" 
+              placeholder="Setiap berapa bulan (contoh: 3)" 
+              value={formData.intervalBulan}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tanggalServisTerakhir">Tanggal Servis Terakhir</Label>
+            <Input 
+              id="tanggalServisTerakhir" 
+              name="tanggalServisTerakhir"
+              type="date" 
+              value={formData.tanggalServisTerakhir}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="kmTerakhir">KM Saat Servis Terakhir</Label>
+            <Input 
+              id="kmTerakhir" 
+              name="kmTerakhir"
+              type="number" 
+              placeholder="48500" 
+              value={formData.kmTerakhir}
+              onChange={onInputChange}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="catatanJadwal">Catatan Jadwal</Label>
+          <Textarea 
+            id="catatanJadwal" 
+            name="catatan"
+            placeholder="Catatan khusus untuk jadwal perawatan ini..." 
+            value={formData.catatan}
+            onChange={onInputChange}
+          />
+        </div>
+        <div className="flex gap-2 pt-4">
+          <Button 
+            type="submit" 
+            className="flex-1" 
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {editMode ? 'Memperbarui Jadwal...' : 'Membuat Jadwal...'}
+              </>
+            ) : (
+              editMode ? 'Perbarui Jadwal Perawatan' : 'Buat Jadwal Perawatan'
+            )}
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+        </div>
+      </form>
+    </CardContent>
+  </Card>
+));
+
+// Separate RepairForm component to prevent re-creation on parent re-renders
+interface RepairFormProps {
+  formData: RepairFormData;
+  spareParts: SparePart[];
+  vehicles: Vehicle[];
+  calculatedTotalCost: number;
+  editMode: boolean;
+  submitting: boolean;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onSelectChange: (field: keyof RepairFormData, value: string) => void;
+  onSparePartAdd: () => void;
+  onSparePartRemove: (index: number) => void;
+  onSparePartNameChange: (index: number, value: string) => void;
+  onSparePartQuantityChange: (index: number, value: string) => void;
+  onSparePartPriceChange: (index: number, value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}
+
+const RepairForm = memo<RepairFormProps>(({
+  formData,
+  spareParts,
+  vehicles,
+  calculatedTotalCost,
+  editMode,
+  submitting,
+  onInputChange,
+  onSelectChange,
+  onSparePartAdd,
+  onSparePartRemove,
+  onSparePartNameChange,
+  onSparePartQuantityChange,
+  onSparePartPriceChange,
+  onSubmit,
+  onCancel
+}) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>{editMode ? 'Edit Riwayat Perbaikan' : 'Catat Riwayat Perbaikan'}</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <form onSubmit={onSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="pilihKendaraanPerbaikan">Pilih Kendaraan *</Label>
+            <Select 
+              value={formData.vehicleId} 
+              onValueChange={(value) => onSelectChange('vehicleId', value)}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih kendaraan yang diperbaiki" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicles.map((vehicle) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id}>
+                    {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tanggalPerbaikan">Tanggal Perbaikan *</Label>
+            <Input 
+              id="tanggalPerbaikan" 
+              name="tanggal"
+              type="date" 
+              value={formData.tanggal}
+              onChange={onInputChange}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="kmPerbaikan">KM Saat Perbaikan</Label>
+            <Input 
+              id="kmPerbaikan" 
+              name="kilometer"
+              type="number" 
+              placeholder="50000" 
+              value={formData.kilometer}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="jenisPerbaikan">Jenis Perbaikan *</Label>
+            <Select 
+              value={formData.jenisPerbaikan} 
+              onValueChange={(value) => onSelectChange('jenisPerbaikan', value)}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih jenis perbaikan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Servis Rutin">Servis Rutin</SelectItem>
+                <SelectItem value="Perbaikan Mesin">Perbaikan Mesin</SelectItem>
+                <SelectItem value="Perbaikan Rem">Perbaikan Rem</SelectItem>
+                <SelectItem value="Perbaikan Transmisi">Perbaikan Transmisi</SelectItem>
+                <SelectItem value="Perbaikan AC">Perbaikan AC</SelectItem>
+                <SelectItem value="Ganti Suku Cadang">Ganti Suku Cadang</SelectItem>
+                <SelectItem value="Lainnya">Lainnya</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="deskripsiMasalah">Deskripsi Masalah *</Label>
+          <Textarea 
+            id="deskripsiMasalah" 
+            name="deskripsi"
+            placeholder="Jelaskan masalah yang terjadi dan tindakan perbaikan yang dilakukan..." 
+            value={formData.deskripsi}
+            onChange={onInputChange}
+            required
+          />
+        </div>
+        
+        {/* Dynamic Spare Parts Section */}
+        <div className="space-y-4 border-t pt-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold">Suku Cadang yang Digunakan</Label>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={onSparePartAdd}
+              disabled={submitting}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Tambah Suku Cadang
+            </Button>
+          </div>
+          
+          {spareParts.map((part, index) => (
+            <div key={part.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
+              <div className="space-y-2">
+                <Label htmlFor={`namaSukuCadang_${index}`}>Nama Suku Cadang</Label>
+                <Input 
+                  id={`namaSukuCadang_${index}`} 
+                  placeholder="Oli mesin, Filter udara, dll." 
+                  value={part.nama}
+                  onChange={(e) => onSparePartNameChange(index, e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`jumlahSukuCadang_${index}`}>Jumlah</Label>
+                <Input 
+                  id={`jumlahSukuCadang_${index}`} 
+                  type="number" 
+                  placeholder="1" 
+                  value={part.jumlah.toString()}
+                  onChange={(e) => onSparePartQuantityChange(index, e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`hargaSatuan_${index}`}>Harga Satuan</Label>
+                <Input 
+                  id={`hargaSatuan_${index}`} 
+                  type="number" 
+                  placeholder="150000" 
+                  value={part.harga > 0 ? part.harga.toString() : ''}
+                  onChange={(e) => onSparePartPriceChange(index, e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Subtotal</Label>
+                <Input 
+                  value={`Rp ${(part.jumlah * part.harga).toLocaleString('id-ID')}`} 
+                  disabled 
+                />
+              </div>
+              <div className="flex items-end">
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => onSparePartRemove(index)}
+                  disabled={submitting}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Hapus
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="biayaJasaMekanik">Biaya Jasa Mekanik</Label>
+            <Input 
+              id="biayaJasaMekanik" 
+              name="biayaJasa"
+              type="number" 
+              placeholder="300000" 
+              value={formData.biayaJasa}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="totalBiaya">Total Biaya (Auto-calculated) *</Label>
+            <Input 
+              id="totalBiaya" 
+              name="totalBiaya"
+              type="number" 
+              placeholder="850000" 
+              value={calculatedTotalCost.toString()}
+              disabled
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="namaBengkel">Nama Bengkel</Label>
+            <Input 
+              id="namaBengkel" 
+              name="bengkel"
+              placeholder="Bengkel Jaya Motor" 
+              value={formData.bengkel}
+              onChange={onInputChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nomorFaktur">Nomor Faktur/Invoice</Label>
+            <Input 
+              id="nomorFaktur" 
+              name="nomorFaktur"
+              placeholder="INV-2024-001" 
+              value={formData.nomorFaktur}
+              onChange={onInputChange}
+            />
+          </div>
+        </div>
+        
+        <div className="flex gap-2 pt-4">
+          <Button 
+            type="submit" 
+            className="flex-1" 
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {editMode ? 'Memperbarui...' : 'Menyimpan...'}
+              </>
+            ) : (
+              editMode ? 'Perbarui Riwayat Perbaikan' : 'Simpan Riwayat Perbaikan'
+            )}
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+        </div>
+      </form>
+    </CardContent>
+  </Card>
+));
+
+RepairForm.displayName = 'RepairForm';
 
 const MaintenanceManagement = () => {
   const { toast } = useToast();
@@ -59,9 +477,31 @@ const MaintenanceManagement = () => {
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
-  // UI-only State Management (not form data)
+  // Controlled Form State for Repair Form
+  const [repairFormData, setRepairFormData] = useState<RepairFormData>({
+    vehicleId: '',
+    tanggal: '',
+    kilometer: '',
+    jenisPerbaikan: '',
+    deskripsi: '',
+    biayaJasa: '',
+    bengkel: '',
+    nomorFaktur: ''
+  });
+
+  // Controlled Form State for Schedule Form
+  const [scheduleFormData, setScheduleFormData] = useState<ScheduleFormData>({
+    vehicleId: '',
+    jenisServis: '',
+    intervalKm: '',
+    intervalBulan: '',
+    tanggalServisTerakhir: '',
+    kmTerakhir: '',
+    catatan: ''
+  });
+
+  // UI-only State Management (controlled spare parts)
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
-  const [calculatedTotalCost, setCalculatedTotalCost] = useState<number>(0);
 
   // Edit State Management
   const [editMode, setEditMode] = useState(false);
@@ -74,9 +514,7 @@ const MaintenanceManagement = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingRecord, setDeletingRecord] = useState<MaintenanceRecord | null>(null);
 
-  // Form refs for uncontrolled forms
-  const scheduleFormRef = useRef<HTMLFormElement>(null);
-  const repairFormRef = useRef<HTMLFormElement>(null);
+  // No refs needed since all forms are now controlled
 
   // Data fetching and refresh functionality
   const refreshData = useCallback(() => {
@@ -103,63 +541,71 @@ const MaintenanceManagement = () => {
   }, [refreshData]);
 
   // Computed data for displays
-  const upcomingMaintenance = maintenanceRecords
-    .filter(record => record.status === 'Dijadwalkan')
-    .sort((a, b) => new Date(a.nextServiceDate || '').getTime() - new Date(b.nextServiceDate || '').getTime());
+  const upcomingMaintenance = useMemo(() => {
+    try {
+      return maintenanceRecords
+        .filter(record => record.status === 'Dijadwalkan')
+        .sort((a, b) => new Date(a.nextServiceDate || '').getTime() - new Date(b.nextServiceDate || '').getTime());
+    } catch (error) {
+      console.error('Error computing upcomingMaintenance:', error);
+      return [];
+    }
+  }, [maintenanceRecords]);
 
-  const completedMaintenance = maintenanceRecords
-    .filter(record => record.status === 'Selesai')
-    .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+  const completedMaintenance = useMemo(() => {
+    try {
+      return maintenanceRecords
+        .filter(record => record.status === 'Selesai')
+        .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+    } catch (error) {
+      console.error('Error computing completedMaintenance:', error);
+      return [];
+    }
+  }, [maintenanceRecords]);
+
+  // Memoized total cost calculation
+  const calculatedTotalCost = useMemo(() => {
+    const laborCost = parseFloat(repairFormData.biayaJasa) || 0;
+    const partsTotal = spareParts.reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
+    return partsTotal + laborCost;
+  }, [repairFormData.biayaJasa, spareParts]);
 
   // Validation Functions
-  const validateScheduleFormData = (formData: FormData): FormErrors => {
+  const validateScheduleFormData = (formData: ScheduleFormData): FormErrors => {
     const errors: FormErrors = {};
     
-    const vehicleId = formData.get('vehicleId') as string;
-    const jenisServis = formData.get('jenisServis') as string;
-    const intervalKm = formData.get('intervalKm') as string;
-    const intervalBulan = formData.get('intervalBulan') as string;
-    const tanggalServisTerakhir = formData.get('tanggalServisTerakhir') as string;
-    const kmTerakhir = formData.get('kmTerakhir') as string;
-    
-    if (!vehicleId) errors.vehicleId = 'Pilih kendaraan wajib diisi';
-    if (!jenisServis) errors.jenisServis = 'Jenis servis wajib diisi';
-    if (!intervalKm && !intervalBulan) {
+    if (!formData.vehicleId) errors.vehicleId = 'Pilih kendaraan wajib diisi';
+    if (!formData.jenisServis) errors.jenisServis = 'Jenis servis wajib diisi';
+    if (!formData.intervalKm && !formData.intervalBulan) {
       errors.interval = 'Minimal satu interval (KM atau Bulan) harus diisi';
     }
-    if (intervalKm && (parseInt(intervalKm) <= 0)) {
+    if (formData.intervalKm && (parseInt(formData.intervalKm) <= 0)) {
       errors.intervalKm = 'Interval KM harus lebih dari 0';
     }
-    if (intervalBulan && (parseInt(intervalBulan) <= 0)) {
+    if (formData.intervalBulan && (parseInt(formData.intervalBulan) <= 0)) {
       errors.intervalBulan = 'Interval bulan harus lebih dari 0';
     }
-    if (tanggalServisTerakhir && new Date(tanggalServisTerakhir) > new Date()) {
+    if (formData.tanggalServisTerakhir && new Date(formData.tanggalServisTerakhir) > new Date()) {
       errors.tanggalServisTerakhir = 'Tanggal servis terakhir tidak boleh di masa depan';
     }
-    if (kmTerakhir && parseInt(kmTerakhir) < 0) {
+    if (formData.kmTerakhir && parseInt(formData.kmTerakhir) < 0) {
       errors.kmTerakhir = 'KM terakhir tidak boleh negatif';
     }
     
     return errors;
   };
 
-  const validateRepairFormData = (formData: FormData, spareParts: SparePart[]): FormErrors => {
+  const validateRepairFormData = (formData: RepairFormData, spareParts: SparePart[]): FormErrors => {
     const errors: FormErrors = {};
     
-    const vehicleId = formData.get('vehicleId') as string;
-    const tanggal = formData.get('tanggal') as string;
-    const jenisPerbaikan = formData.get('jenisPerbaikan') as string;
-    const deskripsi = formData.get('deskripsi') as string;
-    const kilometer = formData.get('kilometer') as string;
-    
-    if (!vehicleId) errors.vehicleId = 'Pilih kendaraan wajib diisi';
-    if (!tanggal) errors.tanggal = 'Tanggal perbaikan wajib diisi';
-    if (!jenisPerbaikan) errors.jenisPerbaikan = 'Jenis perbaikan wajib diisi';
-    if (!deskripsi) errors.deskripsi = 'Deskripsi masalah wajib diisi';
-    if (tanggal && new Date(tanggal) > new Date()) {
+    if (!formData.vehicleId) errors.vehicleId = 'Pilih kendaraan wajib diisi';
+    if (!formData.tanggal) errors.tanggal = 'Tanggal perbaikan wajib diisi';
+    if (!formData.jenisPerbaikan) errors.jenisPerbaikan = 'Jenis perbaikan wajib diisi';
+    if (!formData.deskripsi) errors.deskripsi = 'Deskripsi masalah wajib diisi';
+    if (formData.tanggal && new Date(formData.tanggal) > new Date()) {
       errors.tanggal = 'Tanggal perbaikan tidak boleh di masa depan';
     }
-    if (kilometer && parseInt(kilometer) < 0) {
+    if (formData.kilometer && parseInt(formData.kilometer) < 0) {
       errors.kilometer = 'KM tidak boleh negatif';
     }
     
@@ -206,43 +652,36 @@ const MaintenanceManagement = () => {
   };
 
   const resetScheduleForm = () => {
-    if (scheduleFormRef.current) {
-      scheduleFormRef.current.reset();
-    }
+    setScheduleFormData({
+      vehicleId: '',
+      jenisServis: '',
+      intervalKm: '',
+      intervalBulan: '',
+      tanggalServisTerakhir: '',
+      kmTerakhir: '',
+      catatan: ''
+    });
   };
 
-  const resetRepairForm = () => {
-    if (repairFormRef.current) {
-      repairFormRef.current.reset();
-    }
+  const resetRepairForm = useCallback(() => {
+    setRepairFormData({
+      vehicleId: '',
+      tanggal: '',
+      kilometer: '',
+      jenisPerbaikan: '',
+      deskripsi: '',
+      biayaJasa: '',
+      bengkel: '',
+      nomorFaktur: ''
+    });
     setSpareParts([]);
-    setCalculatedTotalCost(0);
-  };
-
-  // Calculate total cost when spare parts change
-  useEffect(() => {
-    const laborCost = repairFormRef.current ? 
-      parseFloat((repairFormRef.current.querySelector('[name="biayaJasa"]') as HTMLInputElement)?.value || '0') : 0;
-    const total = calculateTotalCost(spareParts, laborCost);
-    setCalculatedTotalCost(total);
-    
-    // Update the total cost field
-    if (repairFormRef.current) {
-      const totalField = repairFormRef.current.querySelector('[name="totalBiaya"]') as HTMLInputElement;
-      if (totalField) {
-        totalField.value = total.toString();
-      }
-    }
-  }, [spareParts]);
+  }, []);
 
   // Form Submission Handlers
   const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!scheduleFormRef.current) return;
-    
-    const formData = new FormData(scheduleFormRef.current);
-    const errors = validateScheduleFormData(formData);
+    const errors = validateScheduleFormData(scheduleFormData);
     
     if (Object.keys(errors).length > 0) {
       // Show first error
@@ -258,44 +697,36 @@ const MaintenanceManagement = () => {
     setSubmitting(true);
     
     try {
-      const vehicleId = formData.get('vehicleId') as string;
-      const jenisServis = formData.get('jenisServis') as string;
-      const intervalKm = formData.get('intervalKm') as string;
-      const intervalBulan = formData.get('intervalBulan') as string;
-      const tanggalServisTerakhir = formData.get('tanggalServisTerakhir') as string;
-      const kmTerakhir = formData.get('kmTerakhir') as string;
-      const catatan = formData.get('catatan') as string;
-
-      const selectedVehicle = vehicles.find(v => v.id === vehicleId);
+      const selectedVehicle = vehicles.find(v => v.id === scheduleFormData.vehicleId);
       if (!selectedVehicle) {
         throw new Error("Kendaraan tidak ditemukan");
       }
 
-      const intervalKmNum = intervalKm ? parseInt(intervalKm) : undefined;
-      const intervalBulanNum = intervalBulan ? parseInt(intervalBulan) : undefined;
-      const kmTerakhirNum = kmTerakhir ? parseInt(kmTerakhir) : 0;
+      const intervalKmNum = scheduleFormData.intervalKm ? parseInt(scheduleFormData.intervalKm) : undefined;
+      const intervalBulanNum = scheduleFormData.intervalBulan ? parseInt(scheduleFormData.intervalBulan) : undefined;
+      const kmTerakhirNum = scheduleFormData.kmTerakhir ? parseInt(scheduleFormData.kmTerakhir) : 0;
 
       const { nextServiceDate, nextServiceKm } = calculateNextService(
-        tanggalServisTerakhir,
+        scheduleFormData.tanggalServisTerakhir,
         kmTerakhirNum,
         intervalBulanNum,
         intervalKmNum,
-        selectedVehicle.kmTerakhir
+        kmTerakhirNum // Use form data instead of vehicle data
       );
 
       const maintenanceData = {
-        vehicleId,
+        vehicleId: scheduleFormData.vehicleId,
         platNomor: selectedVehicle.platNomor,
-        jenisPerawatan: jenisServis,
-        tanggal: tanggalServisTerakhir || new Date().toISOString().split('T')[0],
+        jenisPerawatan: scheduleFormData.jenisServis,
+        tanggal: scheduleFormData.tanggalServisTerakhir || new Date().toISOString().split('T')[0],
         kilometer: kmTerakhirNum,
-        catatan: catatan || '',
+        catatan: scheduleFormData.catatan || '',
         status: 'Dijadwalkan' as const,
         intervalKm: intervalKmNum,
         intervalBulan: intervalBulanNum,
         nextServiceDate,
         nextServiceKm,
-        tanggalServisTerakhir
+        tanggalServisTerakhir: scheduleFormData.tanggalServisTerakhir
       };
 
       if (editMode && editMaintenanceId) {
@@ -312,6 +743,45 @@ const MaintenanceManagement = () => {
           description: "Jadwal perawatan berhasil dibuat"
         });
       }
+
+      // --- Robust reminder integration for maintenance ---
+      if (maintenanceData.status === 'Dijadwalkan' && maintenanceData.nextServiceDate) {
+        const platNomor = maintenanceData.platNomor;
+        const triggerDate = maintenanceData.nextServiceDate;
+        const title = `[AUTO] Reminder Service: ${platNomor} - ${maintenanceData.jenisPerawatan}`;
+        const adminEmail = localStorageService.getEmailSettings().fromEmail;
+        // Remove any existing reminder for this vehicle and triggerDate
+        const existing = reminderService.getReminderConfigs().find(
+          r => r.type === 'service' && r.vehicle === platNomor && r.triggerDate === triggerDate
+        );
+        if (!existing) {
+          reminderService.addReminderConfig({
+            title,
+            type: 'service',
+            vehicle: platNomor,
+            triggerDate,
+            daysBeforeAlert: [30, 14, 7, 1],
+            channels: ['email', 'whatsapp'],
+            recipients: [adminEmail],
+            messageTemplate: `Kendaraan {vehicle} perlu service {service} pada {date}.`,
+            isRecurring: false,
+            status: 'active'
+          });
+        } else {
+          reminderService.updateReminderConfig(existing.id, {
+            title,
+            recipients: [adminEmail],
+            status: 'active',
+            messageTemplate: `Kendaraan {vehicle} perlu service {service} pada {date}.`
+          });
+        }
+        toast({
+          title: "Reminder Diperbarui",
+          description: "Pengingat service kendaraan telah disesuaikan.",
+          variant: "default"
+        });
+      }
+      // --- End robust reminder integration ---
 
       refreshData();
       resetScheduleForm();
@@ -330,10 +800,7 @@ const MaintenanceManagement = () => {
   const handleRepairSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!repairFormRef.current) return;
-    
-    const formData = new FormData(repairFormRef.current);
-    const errors = validateRepairFormData(formData, spareParts);
+    const errors = validateRepairFormData(repairFormData, spareParts);
     
     if (Object.keys(errors).length > 0) {
       // Show first error
@@ -349,35 +816,29 @@ const MaintenanceManagement = () => {
     setSubmitting(true);
     
     try {
-      const vehicleId = formData.get('vehicleId') as string;
-      const tanggal = formData.get('tanggal') as string;
-      const kilometer = formData.get('kilometer') as string;
-      const jenisPerbaikan = formData.get('jenisPerbaikan') as string;
-      const deskripsi = formData.get('deskripsi') as string;
-      const biayaJasa = formData.get('biayaJasa') as string;
-      const bengkel = formData.get('bengkel') as string;
-      const nomorFaktur = formData.get('nomorFaktur') as string;
-
-      const selectedVehicle = vehicles.find(v => v.id === vehicleId);
+      const selectedVehicle = vehicles.find(v => v.id === repairFormData.vehicleId);
       if (!selectedVehicle) {
         throw new Error("Kendaraan tidak ditemukan");
       }
 
-      const biayaJasaNum = biayaJasa ? parseFloat(biayaJasa) : 0;
-      const totalBiayaNum = calculateTotalCost(spareParts, biayaJasaNum);
+      const biayaJasaNum = parseFloat(repairFormData.biayaJasa) || 0;
+      const totalBiayaNum = calculatedTotalCost;
 
       const maintenanceData = {
-        vehicleId,
+        vehicleId: repairFormData.vehicleId,
         platNomor: selectedVehicle.platNomor,
-        jenisPerawatan: jenisPerbaikan,
-        tanggal,
-        kilometer: kilometer ? parseInt(kilometer) : 0,
-        deskripsi,
-        spareParts,
-        biayaJasa: biayaJasaNum,
-        totalBiaya: totalBiayaNum,
-        bengkel: bengkel || '',
-        nomorFaktur: nomorFaktur || '',
+        jenisPerawatan: repairFormData.jenisPerbaikan,
+        tanggal: repairFormData.tanggal,
+        kilometer: parseInt(repairFormData.kilometer) || 0,
+        deskripsi: repairFormData.deskripsi,
+        spareParts: spareParts.map(part => ({
+          nama: part.nama,
+          jumlah: part.jumlah,
+          harga: part.harga
+        })),
+        biaya: totalBiayaNum,
+        bengkel: repairFormData.bengkel || '',
+        teknisi: '',
         status: 'Selesai' as const
       };
 
@@ -412,7 +873,12 @@ const MaintenanceManagement = () => {
 
   // Spare Parts Management
   const addSparePart = useCallback(() => {
-    setSpareParts(prev => [...prev, { nama: '', jumlah: 1, harga: 0 }]);
+    setSpareParts(prev => [...prev, { 
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), 
+      nama: '', 
+      jumlah: 1, 
+      harga: 0 
+    }]);
   }, []);
 
   const removeSparePart = useCallback((index: number) => {
@@ -425,24 +891,39 @@ const MaintenanceManagement = () => {
     ));
   }, []);
 
-  // Cost Calculation
-  const calculateTotalCost = useCallback((spareParts: SparePart[], laborCost: number): number => {
-    const partsTotal = spareParts.reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
-    return partsTotal + laborCost;
+  // Controlled form input handlers for schedule form
+  const handleScheduleFormChange = useCallback((field: keyof ScheduleFormData, value: string) => {
+    setScheduleFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   }, []);
 
-  // Optimized onChange handlers
-  const handleLaborCostChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const laborCost = parseFloat(e.target.value) || 0;
-    const total = calculateTotalCost(spareParts, laborCost);
-    setCalculatedTotalCost(total);
-    
-    // Update total cost field
-    const totalField = repairFormRef.current?.querySelector('[name="totalBiaya"]') as HTMLInputElement;
-    if (totalField) {
-      totalField.value = total.toString();
-    }
-  }, [spareParts, calculateTotalCost]);
+  const handleScheduleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    handleScheduleFormChange(name as keyof ScheduleFormData, value);
+  }, [handleScheduleFormChange]);
+
+  const handleScheduleSelectChange = useCallback((field: keyof ScheduleFormData, value: string) => {
+    handleScheduleFormChange(field, value);
+  }, [handleScheduleFormChange]);
+
+  // Controlled form input handlers for repair form
+  const handleRepairFormChange = useCallback((field: keyof RepairFormData, value: string) => {
+    setRepairFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+
+  const handleRepairInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    handleRepairFormChange(name as keyof RepairFormData, value);
+  }, [handleRepairFormChange]);
+
+  const handleRepairSelectChange = useCallback((field: keyof RepairFormData, value: string) => {
+    handleRepairFormChange(field, value);
+  }, [handleRepairFormChange]);
 
   const handleSparePartNameChange = useCallback((index: number, value: string) => {
     updateSparePart(index, 'nama', value);
@@ -458,42 +939,41 @@ const MaintenanceManagement = () => {
 
   // Form Population Helper Functions
   const populateScheduleFormFromRecord = (record: MaintenanceRecord) => {
-    if (scheduleFormRef.current) {
-      scheduleFormRef.current.reset();
-      setTimeout(() => {
-        if (scheduleFormRef.current) {
-          const form = scheduleFormRef.current;
-          (form.querySelector('[name="vehicleId"]') as any)?.setAttribute('data-value', record.vehicleId);
-          (form.querySelector('[name="jenisServis"]') as any)?.setAttribute('data-value', record.jenisPerawatan);
-          (form.querySelector('[name="tanggalServisTerakhir"]') as HTMLInputElement).value = record.tanggalServisTerakhir || record.tanggal;
-          (form.querySelector('[name="kmTerakhir"]') as HTMLInputElement).value = record.kilometer.toString();
-          (form.querySelector('[name="catatan"]') as HTMLTextAreaElement).value = record.catatan || '';
-          (form.querySelector('[name="intervalKm"]') as HTMLInputElement).value = record.intervalKm?.toString() || '';
-          (form.querySelector('[name="intervalBulan"]') as HTMLInputElement).value = record.intervalBulan?.toString() || '';
-        }
-      }, 100);
-    }
+    setScheduleFormData({
+      vehicleId: record.vehicleId || '',
+      jenisServis: record.jenisPerawatan || '',
+      intervalKm: record.nextServiceKm ? (record.nextServiceKm - record.kilometer).toString() : '',
+      intervalBulan: record.nextServiceDate ? 
+        Math.ceil((new Date(record.nextServiceDate).getTime() - new Date(record.tanggal).getTime()) / (1000 * 60 * 60 * 24 * 30)).toString() : '',
+      tanggalServisTerakhir: record.tanggal || '',
+      kmTerakhir: record.kilometer.toString() || '',
+      catatan: record.catatan || ''
+    });
   };
 
   const populateRepairFormFromRecord = (record: MaintenanceRecord) => {
-    if (repairFormRef.current) {
-      repairFormRef.current.reset();
-      setTimeout(() => {
-        if (repairFormRef.current) {
-          const form = repairFormRef.current;
-          (form.querySelector('[name="vehicleId"]') as any)?.setAttribute('data-value', record.vehicleId);
-          (form.querySelector('[name="jenisPerbaikan"]') as any)?.setAttribute('data-value', record.jenisPerawatan);
-          (form.querySelector('[name="tanggal"]') as HTMLInputElement).value = record.tanggal;
-          (form.querySelector('[name="kilometer"]') as HTMLInputElement).value = record.kilometer.toString();
-          (form.querySelector('[name="deskripsi"]') as HTMLTextAreaElement).value = record.deskripsi || '';
-          (form.querySelector('[name="biayaJasa"]') as HTMLInputElement).value = record.biayaJasa?.toString() || '0';
-          (form.querySelector('[name="totalBiaya"]') as HTMLInputElement).value = record.totalBiaya?.toString() || '0';
-          (form.querySelector('[name="bengkel"]') as HTMLInputElement).value = record.bengkel || '';
-          (form.querySelector('[name="nomorFaktur"]') as HTMLInputElement).value = record.nomorFaktur || '';
-        }
-      }, 100);
-      setSpareParts(record.spareParts || []);
-    }
+    // Calculate biayaJasa by subtracting spare parts cost from total biaya
+    const totalSpareParts = (record.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
+    const biayaJasaAmount = (record.biaya || 0) - totalSpareParts;
+    
+    setRepairFormData({
+      vehicleId: record.vehicleId,
+      tanggal: record.tanggal,
+      kilometer: record.kilometer.toString(),
+      jenisPerbaikan: record.jenisPerawatan,
+      deskripsi: record.deskripsi || '',
+      biayaJasa: biayaJasaAmount.toString(),
+      bengkel: record.bengkel || '',
+      nomorFaktur: ''
+    });
+    // Ensure spare parts have IDs for stable React keys
+    const sparePartsWithIds = (record.spareParts || []).map((part: any) => ({
+      id: part.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      nama: part.nama,
+      jumlah: part.jumlah,
+      harga: part.harga
+    }));
+    setSpareParts(sparePartsWithIds);
   };
 
   // Edit Handlers
@@ -558,6 +1038,25 @@ const MaintenanceManagement = () => {
     try {
       localStorageService.deleteMaintenanceRecord(deletingRecord.id);
       
+      // --- Robust reminder integration for maintenance ---
+      // Remove any reminder associated with this maintenance record
+      const platNomor = deletingRecord.platNomor;
+      const triggerDate = deletingRecord.nextServiceDate;
+      if (platNomor && triggerDate) {
+        const existing = reminderService.getReminderConfigs().find(
+          r => r.type === 'service' && r.vehicle === platNomor && r.triggerDate === triggerDate
+        );
+        if (existing) {
+          reminderService.deleteReminderConfig(existing.id);
+        }
+      }
+      toast({
+        title: "Reminder Diperbarui",
+        description: "Pengingat service kendaraan telah disesuaikan.",
+        variant: "default"
+      });
+      // --- End robust reminder integration ---
+      
       toast({
         title: "Berhasil",
         description: `${deletingRecord.jenisPerawatan} untuk ${deletingRecord.platNomor} telah dihapus`,
@@ -581,341 +1080,29 @@ const MaintenanceManagement = () => {
     setDeletingRecord(null);
   };
 
-  const ScheduleMaintenanceForm = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle>{editMode ? 'Edit Jadwal Perawatan' : 'Jadwal Perawatan Preventif'}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form ref={scheduleFormRef} onSubmit={handleScheduleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pilihKendaraan">Pilih Kendaraan *</Label>
-              <Select name="vehicleId" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kendaraan untuk dijadwalkan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jenisServis">Jenis Servis *</Label>
-              <Select name="jenisServis" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih jenis servis" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Servis Rutin">Servis Rutin</SelectItem>
-                  <SelectItem value="Ganti Oli">Ganti Oli</SelectItem>
-                  <SelectItem value="Tune Up">Tune Up</SelectItem>
-                  <SelectItem value="Cek Sistem Rem">Cek Sistem Rem</SelectItem>
-                  <SelectItem value="Ganti Ban">Ganti Ban</SelectItem>
-                  <SelectItem value="Servis AC">Servis AC</SelectItem>
-                  <SelectItem value="Lainnya">Lainnya</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="intervalKm">Interval KM</Label>
-              <Input 
-                id="intervalKm" 
-                name="intervalKm"
-                type="number" 
-                placeholder="Setiap berapa KM (contoh: 5000)" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="intervalBulan">Interval Bulan</Label>
-              <Input 
-                id="intervalBulan" 
-                name="intervalBulan"
-                type="number" 
-                placeholder="Setiap berapa bulan (contoh: 3)" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tanggalServisTerakhir">Tanggal Servis Terakhir</Label>
-              <Input 
-                id="tanggalServisTerakhir" 
-                name="tanggalServisTerakhir"
-                type="date" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kmTerakhir">KM Saat Servis Terakhir</Label>
-              <Input 
-                id="kmTerakhir" 
-                name="kmTerakhir"
-                type="number" 
-                placeholder="48500" 
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="catatanJadwal">Catatan Jadwal</Label>
-            <Textarea 
-              id="catatanJadwal" 
-              name="catatan"
-              placeholder="Catatan khusus untuk jadwal perawatan ini..." 
-            />
-          </div>
-          <div className="flex gap-2 pt-4">
-            <Button 
-              type="submit" 
-              className="flex-1" 
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editMode ? 'Memperbarui Jadwal...' : 'Membuat Jadwal...'}
-                </>
-              ) : (
-                editMode ? 'Perbarui Jadwal Perawatan' : 'Buat Jadwal Perawatan'
-              )}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => {
-                if (editMode) {
-                  cancelEdit();
-                } else {
-                  setShowScheduleForm(false);
-                  resetScheduleForm();
-                }
-              }}
-              disabled={submitting}
-            >
-              Batal
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
+  // Memoized cancel handler for schedule form
+  const handleScheduleCancel = useCallback(() => {
+    if (editMode) {
+      cancelEdit();
+    } else {
+      setShowScheduleForm(false);
+      resetScheduleForm();
+    }
+  }, [editMode, resetScheduleForm]);
 
-  const RepairHistoryForm = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle>{editMode ? 'Edit Riwayat Perbaikan' : 'Catat Riwayat Perbaikan'}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form ref={repairFormRef} onSubmit={handleRepairSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pilihKendaraanPerbaikan">Pilih Kendaraan *</Label>
-              <Select name="vehicleId" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kendaraan yang diperbaiki" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.platNomor} - {vehicle.merek} {vehicle.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tanggalPerbaikan">Tanggal Perbaikan *</Label>
-              <Input 
-                id="tanggalPerbaikan" 
-                name="tanggal"
-                type="date" 
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kmPerbaikan">KM Saat Perbaikan</Label>
-              <Input 
-                id="kmPerbaikan" 
-                name="kilometer"
-                type="number" 
-                placeholder="50000" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jenisPerbaikan">Jenis Perbaikan *</Label>
-              <Select name="jenisPerbaikan" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih jenis perbaikan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Servis Rutin">Servis Rutin</SelectItem>
-                  <SelectItem value="Perbaikan Mesin">Perbaikan Mesin</SelectItem>
-                  <SelectItem value="Perbaikan Rem">Perbaikan Rem</SelectItem>
-                  <SelectItem value="Perbaikan Transmisi">Perbaikan Transmisi</SelectItem>
-                  <SelectItem value="Perbaikan AC">Perbaikan AC</SelectItem>
-                  <SelectItem value="Ganti Suku Cadang">Ganti Suku Cadang</SelectItem>
-                  <SelectItem value="Lainnya">Lainnya</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="deskripsiMasalah">Deskripsi Masalah *</Label>
-            <Textarea 
-              id="deskripsiMasalah" 
-              name="deskripsi"
-              placeholder="Jelaskan masalah yang terjadi dan tindakan perbaikan yang dilakukan..." 
-              required
-            />
-          </div>
-          
-          {/* Dynamic Spare Parts Section */}
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold">Suku Cadang yang Digunakan</Label>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                onClick={addSparePart}
-                disabled={submitting}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Tambah Suku Cadang
-              </Button>
-            </div>
-            
-            {spareParts.map((part, index) => (
-              <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
-                <div className="space-y-2">
-                  <Label htmlFor={`namaSukuCadang_${index}`}>Nama Suku Cadang</Label>
-                  <Input 
-                    id={`namaSukuCadang_${index}`} 
-                    placeholder="Oli mesin, Filter udara, dll." 
-                    defaultValue={part.nama}
-                    onChange={(e) => handleSparePartNameChange(index, e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`jumlahSukuCadang_${index}`}>Jumlah</Label>
-                  <Input 
-                    id={`jumlahSukuCadang_${index}`} 
-                    type="number" 
-                    placeholder="1" 
-                    defaultValue={part.jumlah}
-                    onChange={(e) => handleSparePartQuantityChange(index, e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`hargaSatuan_${index}`}>Harga Satuan</Label>
-                  <Input 
-                    id={`hargaSatuan_${index}`} 
-                    type="number" 
-                    placeholder="150000" 
-                    defaultValue={part.harga}
-                    onChange={(e) => handleSparePartPriceChange(index, e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Subtotal</Label>
-                  <Input 
-                    value={`Rp ${(part.jumlah * part.harga).toLocaleString('id-ID')}`} 
-                    disabled 
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button 
-                    type="button" 
-                    variant="destructive" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => removeSparePart(index)}
-                    disabled={submitting}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Hapus
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+  // Memoized cancel handler for repair form
+  const handleRepairCancel = useCallback(() => {
+    if (editMode) {
+      cancelEdit();
+    } else {
+      setShowRepairForm(false);
+      resetRepairForm();
+    }
+  }, [editMode, resetRepairForm]);
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="biayaJasaMekanik">Biaya Jasa Mekanik</Label>
-              <Input 
-                id="biayaJasaMekanik" 
-                name="biayaJasa"
-                type="number" 
-                placeholder="300000" 
-                onChange={handleLaborCostChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="totalBiaya">Total Biaya (Auto-calculated) *</Label>
-              <Input 
-                id="totalBiaya" 
-                name="totalBiaya"
-                type="number" 
-                placeholder="850000" 
-                defaultValue={calculatedTotalCost}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="namaBengkel">Nama Bengkel</Label>
-              <Input 
-                id="namaBengkel" 
-                name="bengkel"
-                placeholder="Bengkel Jaya Motor" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nomorFaktur">Nomor Faktur/Invoice</Label>
-              <Input 
-                id="nomorFaktur" 
-                name="nomorFaktur"
-                placeholder="INV-2024-001" 
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2 pt-4">
-            <Button 
-              type="submit" 
-              className="flex-1" 
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editMode ? 'Memperbarui...' : 'Menyimpan...'}
-                </>
-              ) : (
-                editMode ? 'Perbarui Riwayat Perbaikan' : 'Simpan Riwayat Perbaikan'
-              )}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => {
-                if (editMode) {
-                  cancelEdit();
-                } else {
-                  setShowRepairForm(false);
-                  resetRepairForm();
-                }
-              }}
-              disabled={submitting}
-            >
-              Batal
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
+
+
+
 
   return (
     <div className="space-y-6">
@@ -933,8 +1120,37 @@ const MaintenanceManagement = () => {
         </div>
       </div>
 
-      {showScheduleForm && <ScheduleMaintenanceForm />}
-      {showRepairForm && <RepairHistoryForm />}
+      {showScheduleForm && (
+        <ScheduleForm
+          formData={scheduleFormData}
+          vehicles={vehicles}
+          editMode={editMode}
+          submitting={submitting}
+          onInputChange={handleScheduleInputChange}
+          onSelectChange={handleScheduleSelectChange}
+          onSubmit={handleScheduleSubmit}
+          onCancel={handleScheduleCancel}
+        />
+      )}
+      {showRepairForm && (
+        <RepairForm
+          formData={repairFormData}
+          spareParts={spareParts}
+          vehicles={vehicles}
+          calculatedTotalCost={calculatedTotalCost}
+          editMode={editMode}
+          submitting={submitting}
+          onInputChange={handleRepairInputChange}
+          onSelectChange={handleRepairSelectChange}
+          onSparePartAdd={addSparePart}
+          onSparePartRemove={removeSparePart}
+          onSparePartNameChange={handleSparePartNameChange}
+          onSparePartQuantityChange={handleSparePartQuantityChange}
+          onSparePartPriceChange={handleSparePartPriceChange}
+          onSubmit={handleRepairSubmit}
+          onCancel={handleRepairCancel}
+        />
+      )}
 
       {/* Upcoming Maintenance Alert */}
       <Card className="border-orange-200 bg-orange-50">
@@ -965,8 +1181,8 @@ const MaintenanceManagement = () => {
                         <div className="font-semibold">{maintenance.platNomor}</div>
                         <div className="text-sm text-gray-600">{maintenance.jenisPerawatan}</div>
                         <div className="text-sm text-gray-600">
-                          {maintenance.kilometer > 0 && `KM Target: ${maintenance.kilometer.toLocaleString('id-ID')}`}
-                          {maintenance.nextServiceKm && ` / Next: ${maintenance.nextServiceKm.toLocaleString('id-ID')}`}
+                          {maintenance.kilometer > 0 && `KM Target: ${(maintenance.kilometer || 0).toLocaleString('id-ID')}`}
+                          {maintenance.nextServiceKm && ` / Next: ${(maintenance.nextServiceKm || 0).toLocaleString('id-ID')}`}
                         </div>
                       </div>
                     </div>
@@ -1035,6 +1251,18 @@ const MaintenanceManagement = () => {
                                 <div><span className="font-medium">Tanggal:</span> {new Date(history.tanggal).toLocaleDateString('id-ID')}</div>
                                 <div><span className="font-medium">Bengkel:</span> {history.bengkel || 'Tidak diketahui'}</div>
                               </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
+                                <div>
+                                  <span className="font-medium">Biaya Jasa Mekanik:</span> Rp {(() => {
+                                    const sparePartsCost = (history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
+                                    const laborCost = (history.biaya || 0) - sparePartsCost;
+                                    return Math.max(0, laborCost).toLocaleString('id-ID');
+                                  })()}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Biaya Suku Cadang:</span> Rp {(history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0).toLocaleString('id-ID')}
+                                </div>
+                              </div>
                               {history.spareParts && history.spareParts.length > 0 && (
                                 <div className="mt-2">
                                   <span className="font-medium text-sm text-gray-600">Suku Cadang:</span>
@@ -1052,7 +1280,7 @@ const MaintenanceManagement = () => {
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-semibold text-blue-600">
-                              Rp {history.biaya.toLocaleString('id-ID')}
+                              Rp {(history.biaya || 0).toLocaleString('id-ID')}
                             </div>
                             <Badge className="bg-green-100 text-green-800">
                               {history.status}
@@ -1118,8 +1346,8 @@ const MaintenanceManagement = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
                                   <div><span className="font-medium">Kendaraan:</span> {maintenance.platNomor}</div>
                                   <div><span className="font-medium">Tanggal:</span> {maintenance.nextServiceDate ? new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID') : 'Belum ditentukan'}</div>
-                                  <div><span className="font-medium">KM Saat Ini:</span> {maintenance.kilometer.toLocaleString('id-ID')}</div>
-                                  <div><span className="font-medium">Target KM:</span> {maintenance.nextServiceKm ? maintenance.nextServiceKm.toLocaleString('id-ID') : 'Belum ditentukan'}</div>
+                                  <div><span className="font-medium">KM Saat Ini:</span> {(maintenance.kilometer || 0).toLocaleString('id-ID')}</div>
+                                  <div><span className="font-medium">Target KM:</span> {maintenance.nextServiceKm ? (maintenance.nextServiceKm || 0).toLocaleString('id-ID') : 'Belum ditentukan'}</div>
                                 </div>
                                 {maintenance.catatan && (
                                   <div className="text-sm text-gray-600 mt-1">
@@ -1191,7 +1419,7 @@ const MaintenanceManagement = () => {
                           <CardContent className="pt-6">
                             <div className="text-center">
                               <div className="text-2xl font-bold text-blue-600">
-                                Rp {completedMaintenance.reduce((total, item) => total + item.biaya, 0).toLocaleString('id-ID')}
+                                Rp {completedMaintenance.reduce((total, item) => total + (item.biaya || 0), 0).toLocaleString('id-ID')}
                               </div>
                               <p className="text-sm text-gray-600">Total Biaya Perawatan</p>
                             </div>
@@ -1202,7 +1430,7 @@ const MaintenanceManagement = () => {
                             <div className="text-center">
                               <div className="text-2xl font-bold text-green-600">
                                 {completedMaintenance.length > 0 ? (
-                                  `Rp ${Math.round(completedMaintenance.reduce((total, item) => total + item.biaya, 0) / completedMaintenance.length).toLocaleString('id-ID')}`
+                                  `Rp ${Math.round(completedMaintenance.reduce((total, item) => total + (item.biaya || 0), 0) / completedMaintenance.length).toLocaleString('id-ID')}`
                                 ) : (
                                   'Rp 0'
                                 )}
@@ -1233,7 +1461,7 @@ const MaintenanceManagement = () => {
                             <div className="space-y-4">
                               {vehicles.map((vehicle) => {
                                 const vehicleCosts = completedMaintenance.filter(h => h.vehicleId === vehicle.id);
-                                const totalCost = vehicleCosts.reduce((sum, cost) => sum + cost.biaya, 0);
+                                const totalCost = vehicleCosts.reduce((sum, cost) => sum + (cost.biaya || 0), 0);
                                 return (
                                   <div key={vehicle.id} className="flex items-center justify-between p-3 border rounded">
                                     <div>

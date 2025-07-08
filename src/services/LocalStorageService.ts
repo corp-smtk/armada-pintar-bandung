@@ -32,7 +32,7 @@ export interface ReminderConfig {
   document?: string;
   triggerDate: string;
   daysBeforeAlert: number[];
-  channels: ('email' | 'telegram')[];
+  channels: ('email' | 'telegram' | 'whatsapp')[];
   recipients: string[];
   messageTemplate: string;
   isRecurring: boolean;
@@ -139,7 +139,18 @@ export interface OperationalCost {
   updatedAt: string;
 }
 
+export interface WhatsAppSettings {
+  enabled: boolean;
+  api_key: string;
+  sender: string;
+}
+
 class LocalStorageService {
+  private getPrefix() {
+    const user = localStorage.getItem('session_user');
+    return user ? user + '_' : '';
+  }
+
   private readonly KEYS = {
     EMAIL_SETTINGS: 'fleet_email_settings',
     TELEGRAM_SETTINGS: 'fleet_telegram_settings',
@@ -149,16 +160,17 @@ class LocalStorageService {
     VEHICLES: 'fleet_vehicles',
     DOCUMENTS: 'fleet_documents',
     MAINTENANCE_RECORDS: 'fleet_maintenance_records',
-    OPERATIONAL_COSTS: 'fleet_operational_costs'
+    OPERATIONAL_COSTS: 'fleet_operational_costs',
+    WHATSAPP_SETTINGS: 'fleet_whatsapp_settings'
   };
 
   // Email Settings
   saveEmailSettings(settings: EmailSettings): void {
-    localStorage.setItem(this.KEYS.EMAIL_SETTINGS, JSON.stringify(settings));
+    localStorage.setItem(this.getPrefix() + this.KEYS.EMAIL_SETTINGS, JSON.stringify(settings));
   }
 
   getEmailSettings(): EmailSettings {
-    const saved = localStorage.getItem(this.KEYS.EMAIL_SETTINGS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.EMAIL_SETTINGS);
     return saved ? JSON.parse(saved) : {
       enabled: false,
       serviceId: '',
@@ -171,11 +183,11 @@ class LocalStorageService {
 
   // Telegram Settings
   saveTelegramSettings(settings: TelegramSettings): void {
-    localStorage.setItem(this.KEYS.TELEGRAM_SETTINGS, JSON.stringify(settings));
+    localStorage.setItem(this.getPrefix() + this.KEYS.TELEGRAM_SETTINGS, JSON.stringify(settings));
   }
 
   getTelegramSettings(): TelegramSettings {
-    const saved = localStorage.getItem(this.KEYS.TELEGRAM_SETTINGS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.TELEGRAM_SETTINGS);
     return saved ? JSON.parse(saved) : {
       enabled: false,
       botToken: '',
@@ -186,28 +198,21 @@ class LocalStorageService {
 
   // General Settings
   saveGeneralSettings(settings: GeneralSettings): void {
-    localStorage.setItem(this.KEYS.GENERAL_SETTINGS, JSON.stringify(settings));
+    localStorage.setItem(this.getPrefix() + this.KEYS.GENERAL_SETTINGS, JSON.stringify(settings));
   }
 
   getGeneralSettings(): GeneralSettings {
-    const saved = localStorage.getItem(this.KEYS.GENERAL_SETTINGS);
-    return saved ? JSON.parse(saved) : {
-      timezone: 'Asia/Jakarta',
-      dailyCheckTime: '08:00',
-      maxRetryAttempts: 3,
-      retryInterval: 60,
-      enableAutoRetry: true,
-      enableDeliveryReports: true
-    };
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.GENERAL_SETTINGS);
+    return saved ? JSON.parse(saved) : undefined;
   }
 
   // Reminder Configs
   saveReminderConfigs(configs: ReminderConfig[]): void {
-    localStorage.setItem(this.KEYS.REMINDER_CONFIGS, JSON.stringify(configs));
+    localStorage.setItem(this.getPrefix() + this.KEYS.REMINDER_CONFIGS, JSON.stringify(configs));
   }
 
   getReminderConfigs(): ReminderConfig[] {
-    const saved = localStorage.getItem(this.KEYS.REMINDER_CONFIGS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.REMINDER_CONFIGS);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -234,11 +239,11 @@ class LocalStorageService {
 
   // Delivery Logs
   saveDeliveryLogs(logs: DeliveryLog[]): void {
-    localStorage.setItem(this.KEYS.DELIVERY_LOGS, JSON.stringify(logs));
+    localStorage.setItem(this.getPrefix() + this.KEYS.DELIVERY_LOGS, JSON.stringify(logs));
   }
 
   getDeliveryLogs(): DeliveryLog[] {
-    const saved = localStorage.getItem(this.KEYS.DELIVERY_LOGS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.DELIVERY_LOGS);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -254,11 +259,11 @@ class LocalStorageService {
 
   // Vehicle Management
   saveVehicles(vehicles: Vehicle[]): void {
-    localStorage.setItem(this.KEYS.VEHICLES, JSON.stringify(vehicles));
+    localStorage.setItem(this.getPrefix() + this.KEYS.VEHICLES, JSON.stringify(vehicles));
   }
 
   getVehicles(): Vehicle[] {
-    const saved = localStorage.getItem(this.KEYS.VEHICLES);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.VEHICLES);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -302,11 +307,11 @@ class LocalStorageService {
 
   // Document Management
   saveDocuments(documents: Document[]): void {
-    localStorage.setItem(this.KEYS.DOCUMENTS, JSON.stringify(documents));
+    localStorage.setItem(this.getPrefix() + this.KEYS.DOCUMENTS, JSON.stringify(documents));
   }
 
   getDocuments(): Document[] {
-    const saved = localStorage.getItem(this.KEYS.DOCUMENTS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.DOCUMENTS);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -361,11 +366,11 @@ class LocalStorageService {
 
   // Maintenance Management
   saveMaintenanceRecords(records: MaintenanceRecord[]): void {
-    localStorage.setItem(this.KEYS.MAINTENANCE_RECORDS, JSON.stringify(records));
+    localStorage.setItem(this.getPrefix() + this.KEYS.MAINTENANCE_RECORDS, JSON.stringify(records));
   }
 
   getMaintenanceRecords(): MaintenanceRecord[] {
-    const saved = localStorage.getItem(this.KEYS.MAINTENANCE_RECORDS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.MAINTENANCE_RECORDS);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -410,11 +415,11 @@ class LocalStorageService {
 
   // Operational Costs Management
   saveOperationalCosts(costs: OperationalCost[]): void {
-    localStorage.setItem(this.KEYS.OPERATIONAL_COSTS, JSON.stringify(costs));
+    localStorage.setItem(this.getPrefix() + this.KEYS.OPERATIONAL_COSTS, JSON.stringify(costs));
   }
 
   getOperationalCosts(): OperationalCost[] {
-    const saved = localStorage.getItem(this.KEYS.OPERATIONAL_COSTS);
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.OPERATIONAL_COSTS);
     return saved ? JSON.parse(saved) : [];
   }
 
@@ -457,6 +462,15 @@ class LocalStorageService {
     return costs.filter(c => c.vehicleId === vehicleId);
   }
 
+  // WhatsApp Settings
+  saveWhatsAppSettings(settings: WhatsAppSettings): void {
+    localStorage.setItem(this.getPrefix() + this.KEYS.WHATSAPP_SETTINGS, JSON.stringify(settings));
+  }
+  getWhatsAppSettings(): WhatsAppSettings {
+    const saved = localStorage.getItem(this.getPrefix() + this.KEYS.WHATSAPP_SETTINGS);
+    return saved ? JSON.parse(saved) : undefined;
+  }
+
   // Utility methods
   private calculateDaysRemaining(expiryDate: string): number {
     const today = new Date();
@@ -474,7 +488,7 @@ class LocalStorageService {
 
   clearAllData(): void {
     Object.values(this.KEYS).forEach(key => {
-      localStorage.removeItem(key);
+      localStorage.removeItem(this.getPrefix() + key);
     });
   }
 
@@ -489,6 +503,7 @@ class LocalStorageService {
       documents: this.getDocuments(),
       maintenanceRecords: this.getMaintenanceRecords(),
       operationalCosts: this.getOperationalCosts(),
+      whatsAppSettings: this.getWhatsAppSettings(),
       exportedAt: new Date().toISOString()
     };
     return JSON.stringify(data, null, 2);
@@ -506,6 +521,7 @@ class LocalStorageService {
       if (data.documents) this.saveDocuments(data.documents);
       if (data.maintenanceRecords) this.saveMaintenanceRecords(data.maintenanceRecords);
       if (data.operationalCosts) this.saveOperationalCosts(data.operationalCosts);
+      if (data.whatsAppSettings) this.saveWhatsAppSettings(data.whatsAppSettings);
     } catch (error) {
       throw new Error('Invalid import data format');
     }
