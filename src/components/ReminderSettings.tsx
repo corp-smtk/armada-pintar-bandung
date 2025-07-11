@@ -16,6 +16,7 @@ import emailjs from '@emailjs/browser';
 import EmailJSSetupGuide from './EmailJSSetupGuide';
 import SystemConfigPanel from './SystemConfigPanel';
 import { reminderService } from './ReminderService';
+import { automatedSchedulerService } from '@/services/AutomatedSchedulerService';
 
 interface ReminderSettingsProps {
   onBack: () => void;
@@ -366,9 +367,12 @@ Common issue: Template contains handlebars logic that EmailJS doesn't support.`;
     localStorageService.saveTelegramSettings(telegramSettings);
     localStorageService.saveGeneralSettings(generalSettings);
     
+    // Restart the automated scheduler to use the new scheduled time
+    automatedSchedulerService.restart();
+    
     toast({
       title: "Settings Saved",
-      description: "Pengaturan reminder berhasil disimpan.",
+      description: "Pengaturan reminder berhasil disimpan. Scheduler otomatis telah direstart dengan waktu baru.",
     });
   };
 

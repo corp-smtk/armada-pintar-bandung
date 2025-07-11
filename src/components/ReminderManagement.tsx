@@ -18,6 +18,7 @@ import EmailTemplateManager from './EmailTemplateManager';
 import EmailTargetingManager from './EmailTargetingManager';
 import ReminderSettings from './ReminderSettings';
 import ReminderLogs from './ReminderLogs';
+import AutomatedSchedulerStatusWidget from './AutomatedSchedulerStatusWidget';
 
 const ReminderManagement = () => {
   const { toast } = useToast();
@@ -859,10 +860,13 @@ const ReminderManagement = () => {
         </div>
       </div>
 
+      {/* Automated Scheduler Status Widget */}
+      <AutomatedSchedulerStatusWidget />
+
       {/* Control Panel - Enhanced responsive grid */}
       <Card className="shadow-sm">
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg sm:text-xl">Panel Kontrol Reminder</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Panel Kontrol Manual</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
