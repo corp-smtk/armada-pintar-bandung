@@ -33,25 +33,25 @@ export interface SystemConfigStatus {
 class SystemConfigService {
   private readonly SYSTEM_CONFIG_KEY = 'system_config';
   
-  // Default system configuration (fallback)
+  // Default system configuration (fallback) - Using working credentials
   private defaultSystemConfig: SystemConfig = {
     email: {
       enabled: true,
-      serviceId: 'service_gastrax_001', // System EmailJS service
-      templateId: 'template_gastrax_001', // System EmailJS template
-      publicKey: 'gastrax_public_key_001', // System EmailJS public key
-      fromEmail: 'noreply@gastrax.smartek.co.id',
+      serviceId: 'service_gzjclqi', // Working EmailJS service
+      templateId: 'template_pt3ndpf', // Working EmailJS template  
+      publicKey: '3IJlW5x9KGB1VmVr9', // Working EmailJS public key
+      fromEmail: 'reminder@smarteksistem.com',
       fromName: 'GasTrax System - Smartek Sistem Indonesia'
     },
     whatsapp: {
       enabled: true,
-      apiKey: 'system_zapin_key_001', // System Zapin API key
-      sender: '6285720156766' // System WhatsApp sender
+      apiKey: 'bdya98Gl2nXJ7VAKoANO2NSHurDOrR', // Working Zapin API key
+      sender: '6285691232473' // Working WhatsApp sender
     },
     telegram: {
       enabled: true,
-      botToken: 'system_telegram_bot_001', // System Telegram bot token
-      defaultChatId: '@gastrax_alerts' // System Telegram channel
+      botToken: 'system_telegram_bot_001', // System Telegram bot token (placeholder)
+      defaultChatId: '@armada_alerts' // System Telegram channel
     }
   };
 

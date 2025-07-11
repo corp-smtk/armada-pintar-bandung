@@ -363,102 +363,121 @@ const Index = () => {
     }));
 
   const renderDashboard = () => (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Welcome Header - Responsive padding and text sizes */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 sm:p-6 rounded-lg">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">Sistem Manajemen Armada LPG</h1>
-        <p className="text-sm sm:text-base text-blue-100">Selamat datang di dashboard manajemen armada Anda</p>
+    <div className="space-y-4 sm:space-y-5 md:space-y-6 lg:space-y-8">
+      {/* Welcome Header - Enhanced responsive padding and text sizes */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 sm:p-5 md:p-6 rounded-lg shadow-lg">
+        <h1 className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold mb-2">Sistem Manajemen Armada LPG</h1>
+        <p className="text-sm sm:text-base md:text-base text-blue-100 opacity-90">Selamat datang di dashboard manajemen armada Anda</p>
       </div>
 
-      {/* Key Metrics Cards - Responsive grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Kendaraan Aktif</CardTitle>
-            <Truck className="h-4 w-4 text-green-600" />
+      {/* Key Metrics Cards - Enhanced responsive grid with better tablet support */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+        <Card className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm md:text-sm font-medium text-gray-600">Kendaraan Aktif</CardTitle>
+            <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{dashboardStats.activeVehicles}</div>
-            <p className="text-xs text-gray-500">dari {dashboardStats.activeVehicles + dashboardStats.inactiveVehicles} total kendaraan</p>
+          <CardContent className="pt-0">
+            <div className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold text-green-600">{dashboardStats.activeVehicles}</div>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">dari {dashboardStats.activeVehicles + dashboardStats.inactiveVehicles} total kendaraan</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Perlu Servis</CardTitle>
-            <Wrench className="h-4 w-4 text-orange-600" />
+        <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm md:text-sm font-medium text-gray-600">Perlu Servis</CardTitle>
+            <Wrench className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-orange-600">{dashboardStats.nearingService}</div>
-            <p className="text-xs text-gray-500">kendaraan mendekati jadwal servis</p>
+          <CardContent className="pt-0">
+            <div className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold text-orange-600">{dashboardStats.nearingService}</div>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">kendaraan mendekati jadwal servis</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Dokumen Kadaluarsa</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+        <Card className="border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm md:text-sm font-medium text-gray-600">Dokumen Kadaluarsa</CardTitle>
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-red-600">{dashboardStats.expiringDocuments}</div>
-            <p className="text-xs text-gray-500">dokumen mendekati kadaluarsa</p>
+          <CardContent className="pt-0">
+            <div className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold text-red-600">{dashboardStats.expiringDocuments}</div>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">dokumen mendekati kadaluarsa</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-500 sm:col-span-2 xl:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Biaya Operasional</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
+        <Card className="border-l-4 border-l-blue-500 sm:col-span-2 md:col-span-2 xl:col-span-1 hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm md:text-sm font-medium text-gray-600">Biaya Operasional</CardTitle>
+            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
+          <CardContent className="pt-0">
+            <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-blue-600">
               Rp {dashboardStats.monthlyOperationalCost.toLocaleString('id-ID')}
             </div>
-            <p className="text-xs text-gray-500">bulan ini</p>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">bulan ini</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions - Responsive button layout */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+      {/* Quick Actions - Enhanced responsive button layout with touch-friendly sizing */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-xl">
             <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             Aksi Cepat
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
-            <Button onClick={() => setActiveModule('vehicles')} className="flex items-center gap-2 text-xs sm:text-sm">
-              <Truck className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="truncate">Tambah Kendaraan Baru</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+            <Button 
+              onClick={() => setActiveModule('vehicles')} 
+              className="min-h-[44px] flex items-center justify-center gap-2 text-xs sm:text-sm md:text-sm p-3 sm:p-4"
+            >
+              <Truck className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+              <span className="truncate">Tambah Kendaraan</span>
             </Button>
-            <Button onClick={() => setActiveModule('maintenance')} variant="outline" className="flex items-center gap-2 text-xs sm:text-sm">
-              <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+            <Button 
+              onClick={() => setActiveModule('maintenance')} 
+              variant="outline" 
+              className="min-h-[44px] flex items-center justify-center gap-2 text-xs sm:text-sm md:text-sm p-3 sm:p-4"
+            >
+              <Calendar className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
               <span className="truncate">Jadwalkan Perawatan</span>
             </Button>
-            <Button onClick={() => setActiveModule('documents')} variant="outline" className="flex items-center gap-2 text-xs sm:text-sm">
-              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+            <Button 
+              onClick={() => setActiveModule('documents')} 
+              variant="outline" 
+              className="min-h-[44px] flex items-center justify-center gap-2 text-xs sm:text-sm md:text-sm p-3 sm:p-4"
+            >
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
               <span className="truncate">Upload Dokumen</span>
             </Button>
-            <Button onClick={() => setActiveModule('costs')} variant="outline" className="flex items-center gap-2 text-xs sm:text-sm">
-              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <Button 
+              onClick={() => setActiveModule('costs')} 
+              variant="outline" 
+              className="min-h-[44px] flex items-center justify-center gap-2 text-xs sm:text-sm md:text-sm p-3 sm:p-4"
+            >
+              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
               <span className="truncate">Catat Biaya</span>
             </Button>
-            <Button onClick={() => { console.log('🔄 Force reloading data...'); loadDashboardData(); }} variant="secondary" className="flex items-center gap-2 text-xs sm:text-sm bg-yellow-100 hover:bg-yellow-200">
-              <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
+            <Button 
+              onClick={() => { console.log('🔄 Force reloading data...'); loadDashboardData(); }} 
+              variant="secondary" 
+              className="min-h-[44px] flex items-center justify-center gap-2 text-xs sm:text-sm md:text-sm bg-yellow-100 hover:bg-yellow-200 p-3 sm:p-4 sm:col-span-2 md:col-span-3 lg:col-span-1"
+            >
+              <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
               <span className="truncate">Force Refresh</span>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Alerts Section - Responsive grid and spacing */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+      {/* Alerts Section - Enhanced responsive grid with better mobile layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
         {/* Vehicles Nearing Service */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-600 text-base sm:text-lg">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-orange-600 text-base sm:text-lg md:text-lg">
               <Wrench className="h-4 w-4 sm:h-5 sm:w-5" />
               Kendaraan Mendekati Servis
             </CardTitle>
@@ -466,24 +485,24 @@ const Index = () => {
           <CardContent>
             <div className="space-y-2 sm:space-y-3">
               {nearingServiceVehicles.length > 0 ? nearingServiceVehicles.map((vehicle, index) => (
-                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-orange-50 rounded-lg gap-2">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm sm:text-base truncate">{vehicle.platNomor}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">
+                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-orange-50 rounded-lg gap-2 sm:gap-3 border border-orange-100">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm sm:text-base md:text-base truncate text-gray-900">{vehicle.platNomor}</div>
+                    <div className="text-xs sm:text-sm md:text-sm text-gray-600 mt-0.5">
                       {vehicle.jenisKendaraan} • KM: {vehicle.kmTerakhir.toLocaleString('id-ID')}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs sm:text-xs text-gray-500 mt-0.5">
                       Terakhir servis: {vehicle.servisTerakhir}
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs shrink-0">
+                  <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs sm:text-sm shrink-0 whitespace-nowrap">
                     {vehicle.daysUntilService} hari lagi
                   </Badge>
                 </div>
               )) : (
-                <div className="text-center py-4 text-gray-500">
-                  <Wrench className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">Tidak ada kendaraan yang mendekati jadwal servis</p>
+                <div className="text-center py-6 sm:py-8 text-gray-500">
+                  <Wrench className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm sm:text-base">Tidak ada kendaraan yang mendekati jadwal servis</p>
                 </div>
               )}
             </div>
@@ -491,9 +510,9 @@ const Index = () => {
         </Card>
 
         {/* Documents Nearing Expiry */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600 text-base sm:text-lg">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-red-600 text-base sm:text-lg md:text-lg">
               <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
               Dokumen Mendekati Kadaluarsa
             </CardTitle>
@@ -501,17 +520,17 @@ const Index = () => {
           <CardContent>
             <div className="space-y-2 sm:space-y-3">
               {expiringDocuments.length > 0 ? expiringDocuments.map((doc, index) => (
-                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-red-50 rounded-lg gap-2">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm sm:text-base truncate">{doc.dokumen}</div>
-                    <div className="text-xs sm:text-sm text-gray-600 truncate">{doc.platNomor}</div>
-                    <div className="text-xs text-gray-500">
+                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-red-50 rounded-lg gap-2 sm:gap-3 border border-red-100">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm sm:text-base md:text-base truncate text-gray-900">{doc.dokumen}</div>
+                    <div className="text-xs sm:text-sm md:text-sm text-gray-600 truncate mt-0.5">{doc.platNomor}</div>
+                    <div className="text-xs sm:text-xs text-gray-500 mt-0.5">
                       Kadaluarsa: {doc.tanggalKadaluarsa}
                     </div>
                   </div>
                   <Badge 
                     variant="outline" 
-                    className={`text-xs shrink-0 ${
+                    className={`text-xs sm:text-sm shrink-0 whitespace-nowrap ${
                       doc.hariTersisa <= 14 
                         ? 'text-red-600 border-red-600' 
                         : 'text-orange-600 border-orange-600'
@@ -521,9 +540,9 @@ const Index = () => {
                   </Badge>
                 </div>
               )) : (
-                <div className="text-center py-4 text-gray-500">
-                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">Tidak ada dokumen yang mendekati kadaluarsa</p>
+                <div className="text-center py-6 sm:py-8 text-gray-500">
+                  <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm sm:text-base">Tidak ada dokumen yang mendekati kadaluarsa</p>
                 </div>
               )}
             </div>
@@ -565,7 +584,7 @@ const Index = () => {
         onResetData={resetToDummyData}
         showResetButton={isValidCompanyLogin(sessionUser)}
       />
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-4 sm:py-5 md:py-6 lg:py-8">
         {renderActiveModule()}
       </main>
       <Toaster />

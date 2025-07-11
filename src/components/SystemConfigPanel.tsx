@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Info, Settings, Mail, MessageSquare, MessageCircle, Shield } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info, Settings, Mail, MessageSquare, MessageCircle, Shield, RotateCcw } from 'lucide-react';
 import { systemConfigService } from '@/services/SystemConfigService';
+import { autoConfigService } from '@/services/AutoConfigService';
 import type { SystemConfigStatus } from '@/services/SystemConfigService';
 
 interface SystemConfigPanelProps {
@@ -15,6 +16,8 @@ const SystemConfigPanel: React.FC<SystemConfigPanelProps> = ({ onClose }) => {
   const [configStatus, setConfigStatus] = useState<SystemConfigStatus | null>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [autoConfigStatus, setAutoConfigStatus] = useState<any>(null);
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
 
   useEffect(() => {
     loadSystemInfo();
@@ -26,16 +29,31 @@ const SystemConfigPanel: React.FC<SystemConfigPanelProps> = ({ onClose }) => {
       const status = systemConfigService.getConfigStatus();
       const info = systemConfigService.getSystemInfo();
       const readyStatus = systemConfigService.isSystemReady();
+      const autoStatus = autoConfigService.getSystemStatus();
       
       setConfigStatus(status);
       setSystemInfo({
         ...info,
         readyStatus
       });
+      setAutoConfigStatus(autoStatus);
     } catch (error) {
       console.error('Error loading system info:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForceReconfigure = async () => {
+    setIsReconfiguring(true);
+    try {
+      await autoConfigService.forceReconfigure();
+      loadSystemInfo(); // Reload info after reconfiguration
+      console.log('🔄 System reconfiguration completed');
+    } catch (error) {
+      console.error('❌ Failed to reconfigure system:', error);
+    } finally {
+      setIsReconfiguring(false);
     }
   };
 
@@ -112,6 +130,68 @@ const SystemConfigPanel: React.FC<SystemConfigPanelProps> = ({ onClose }) => {
           </Button>
         )}
       </div>
+
+      {/* Auto-Configuration Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Auto-Configuration Status
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleForceReconfigure}
+              disabled={isReconfiguring}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className={`h-4 w-4 ${isReconfiguring ? 'animate-spin' : ''}`} />
+              {isReconfiguring ? 'Reconfiguring...' : 'Force Reconfigure'}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {autoConfigStatus?.autoConfigured ? (
+            <Alert className="border-blue-200 bg-blue-50">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Auto-Configured:</strong> System configurations have been automatically set up on {autoConfigStatus.lastConfigured ? new Date(autoConfigStatus.lastConfigured).toLocaleDateString('id-ID') : 'unknown date'}. 
+                All communication services should work without manual configuration.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="border-orange-200 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Not Auto-Configured:</strong> System has not been automatically configured yet. 
+                Click "Force Reconfigure" to set up default configurations.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className={`text-2xl font-bold ${autoConfigStatus?.emailReady ? 'text-green-600' : 'text-red-600'}`}>
+                {autoConfigStatus?.emailReady ? '✓' : '✗'}
+              </div>
+              <div className="text-sm text-gray-600">Email Ready</div>
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${autoConfigStatus?.whatsappReady ? 'text-green-600' : 'text-red-600'}`}>
+                {autoConfigStatus?.whatsappReady ? '✓' : '✗'}
+              </div>
+              <div className="text-sm text-gray-600">WhatsApp Ready</div>
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${autoConfigStatus?.telegramReady ? 'text-green-600' : 'text-red-600'}`}>
+                {autoConfigStatus?.telegramReady ? '✓' : '✗'}
+              </div>
+              <div className="text-sm text-gray-600">Telegram Ready</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* System Status Overview */}
       <Card>

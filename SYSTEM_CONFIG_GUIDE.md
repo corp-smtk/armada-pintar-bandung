@@ -42,7 +42,7 @@ SYSTEM_EMAILJS_SERVICE_ID=your_emailjs_service_id
 SYSTEM_EMAILJS_TEMPLATE_ID=your_emailjs_template_id
 SYSTEM_EMAILJS_PUBLIC_KEY=your_emailjs_public_key
 SYSTEM_FROM_EMAIL=noreply@yourdomain.com
-SYSTEM_FROM_NAME=Your Company Name
+SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia
 
 # WhatsApp Zapin API System Configuration (for proxy server)
 SYSTEM_ZAPIN_API_KEY=your_zapin_api_key
@@ -63,7 +63,7 @@ VITE_SYSTEM_EMAILJS_SERVICE_ID=your_emailjs_service_id
 VITE_SYSTEM_EMAILJS_TEMPLATE_ID=your_emailjs_template_id
 VITE_SYSTEM_EMAILJS_PUBLIC_KEY=your_emailjs_public_key
 VITE_SYSTEM_FROM_EMAIL=noreply@yourdomain.com
-VITE_SYSTEM_FROM_NAME=Your Company Name
+VITE_SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia
 
 VITE_SYSTEM_ZAPIN_API_KEY=your_zapin_api_key
 VITE_SYSTEM_ZAPIN_SENDER=your_whatsapp_number

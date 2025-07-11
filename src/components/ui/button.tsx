@@ -20,10 +20,12 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "h-10 px-4 py-2 sm:h-11 sm:px-5 sm:py-2.5",
+        sm: "h-9 rounded-md px-3 sm:h-10 sm:px-4",
+        lg: "h-11 rounded-md px-8 sm:h-12 sm:px-10",
+        icon: "h-10 w-10 sm:h-11 sm:w-11",
+        touch: "min-h-[44px] px-4 py-2.5 sm:px-5 sm:py-3", // Touch-friendly minimum
+        touchCompact: "min-h-[40px] px-3 py-2 sm:px-4 sm:py-2.5",
       },
     },
     defaultVariants: {
@@ -53,4 +55,45 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
-export { Button, buttonVariants }
+// Enhanced responsive button variants
+const ButtonMobile = React.forwardRef<
+  HTMLButtonElement,
+  ButtonProps & { fullWidth?: boolean }
+>(({ className, variant, size = "touch", fullWidth, ...props }, ref) => {
+  return (
+    <Button
+      className={cn(
+        "transition-all duration-200 active:scale-[0.98]",
+        fullWidth && "w-full",
+        className
+      )}
+      variant={variant}
+      size={size}
+      ref={ref}
+      {...props}
+    />
+  )
+})
+ButtonMobile.displayName = "ButtonMobile"
+
+const ButtonIcon = React.forwardRef<
+  HTMLButtonElement,
+  ButtonProps & { rounded?: boolean }
+>(({ className, variant = "ghost", size = "icon", rounded, ...props }, ref) => {
+  return (
+    <Button
+      className={cn(
+        "shrink-0",
+        rounded && "rounded-full",
+        className
+      )}
+      variant={variant}
+      size={size}
+      ref={ref}
+      {...props}
+    />
+  )
+})
+ButtonIcon.displayName = "ButtonIcon"
+
+export { Button, ButtonMobile, ButtonIcon, buttonVariants }

@@ -98,7 +98,7 @@ VITE_SYSTEM_EMAILJS_SERVICE_ID=service_abc123        # From EmailJS
 VITE_SYSTEM_EMAILJS_TEMPLATE_ID=template_def456      # From EmailJS  
 VITE_SYSTEM_EMAILJS_PUBLIC_KEY=user_ghi789           # From EmailJS
 VITE_SYSTEM_FROM_EMAIL=reminder@smarteksistem.com     # Your business email
-VITE_SYSTEM_FROM_NAME=Your Company Name              # Your company name
+VITE_SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia              # Your company name
 
 VITE_SYSTEM_ZAPIN_API_KEY=your_zapin_api_key         # From Zapin
 VITE_SYSTEM_ZAPIN_SENDER=6285691232473               # Your WhatsApp number
@@ -115,7 +115,7 @@ SYSTEM_EMAILJS_SERVICE_ID=service_abc123
 SYSTEM_EMAILJS_TEMPLATE_ID=template_def456
 SYSTEM_EMAILJS_PUBLIC_KEY=user_ghi789
 SYSTEM_FROM_EMAIL=reminder@smarteksistem.com
-SYSTEM_FROM_NAME=Your Company Name
+SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia
 
 SYSTEM_ZAPIN_API_KEY=your_zapin_api_key
 SYSTEM_ZAPIN_SENDER=6285691232473

@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useReminderService } from './ReminderService';
+import { ResponsiveTable, ResponsiveTableRow, ResponsiveTableCell, MobileTable, MobileTableItem } from './ResponsiveTable';
+import { ResponsiveModal } from './ResponsiveDialog';
 import EmailTemplateManager from './EmailTemplateManager';
 import EmailTargetingManager from './EmailTargetingManager';
 import ReminderSettings from './ReminderSettings';
@@ -831,331 +833,365 @@ const ReminderManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Manajemen Reminder</h1>
-        <div className="flex gap-2">
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      {/* Header with Control Buttons - Enhanced responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold text-gray-900">Manajemen Reminder</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Kelola notifikasi otomatis untuk perawatan kendaraan</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button 
-            variant="outline" 
-            onClick={handleRunDailyCheck}
-            disabled={isRunningDailyCheck}
-            className="flex items-center gap-2"
+            onClick={() => setShowCreateForm(true)} 
+            className="min-h-[44px] flex items-center gap-2"
           >
-            <Play className="h-4 w-4" />
-            {isRunningDailyCheck ? 'Running...' : 'Run Daily Check'}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleCleanupInvalidReminders}
-            disabled={isRunningCleanup}
-            className="flex items-center gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            {isRunningCleanup ? 'Cleaning...' : 'Cleanup Invalid'}
-          </Button>
-          <Button variant="outline" onClick={() => setShowSettings(true)} className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Pengaturan
-          </Button>
-          <Button onClick={() => setShowCreateForm(!showCreateForm)} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Buat Reminder
+            <span className="truncate">Buat Reminder</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowSettings(true)}
+            className="min-h-[44px] flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="truncate">Pengaturan</span>
           </Button>
         </div>
       </div>
 
-      {showCreateForm && <CreateReminderForm />}
+      {/* Control Panel - Enhanced responsive grid */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">Panel Kontrol Reminder</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+            <Button 
+              onClick={handleRunDailyCheck} 
+              disabled={isRunningDailyCheck}
+              className="min-h-[44px] flex items-center justify-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              {isRunningDailyCheck ? 'Menjalankan...' : 'Jalankan Daily Check'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleCleanupInvalidReminders}
+              disabled={isRunningCleanup}
+              className="min-h-[44px] flex items-center justify-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isRunningCleanup ? 'Membersihkan...' : 'Bersihkan Invalid'}
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={fetchAllQueues}
+              disabled={isLoadingQueue}
+              className="min-h-[44px] flex items-center justify-center gap-2 sm:col-span-2 lg:col-span-1"
+            >
+              <Bell className="h-4 w-4" />
+              {isLoadingQueue ? 'Memuat...' : 'Refresh Queue'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
+      {/* Stats Cards - Enhanced responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Reminder</p>
-                <p className="text-2xl font-bold text-blue-600">{activeReminders.length}</p>
-              </div>
-              <Bell className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Aktif</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {activeReminders.filter(r => r.status === 'active').length}
+                <p className="text-sm sm:text-base text-gray-600">Active Reminders</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600">
+                  {activeReminders.length}
                 </p>
               </div>
-              <Bell className="h-8 w-8 text-green-600" />
+              <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Kirim Hari Ini</p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-sm sm:text-base text-gray-600">Queue Today</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600">
                   {emailQueue.length + whatsappQueue.length + telegramQueue.length}
                 </p>
               </div>
-              <Mail className="h-8 w-8 text-orange-600" />
+              <Mail className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Success Rate</p>
-                <p className="text-2xl font-bold text-green-600">98%</p>
+                <p className="text-sm sm:text-base text-gray-600">Success Rate</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600">98%</p>
               </div>
-              <MessageCircle className="h-8 w-8 text-green-600" />
+              <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Reminder Management Tabs */}
-      <Card>
+      {/* Reminder Management Tabs - Enhanced responsive design */}
+      <Card className="shadow-sm">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="active">Reminder Aktif</TabsTrigger>
-              <TabsTrigger value="logs">Log Pengiriman</TabsTrigger>
-              <TabsTrigger value="templates">Template</TabsTrigger>
-              <TabsTrigger value="contacts">Kontak</TabsTrigger>
+            {/* Mobile-optimized tab list */}
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+              <TabsTrigger value="active" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Reminder Aktif</span>
+                <span className="sm:hidden">Aktif</span>
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Log Pengiriman</span>
+                <span className="sm:hidden">Log</span>
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs sm:text-sm p-2 sm:p-3">Template</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs sm:text-sm p-2 sm:p-3">Kontak</TabsTrigger>
             </TabsList>
             
-            <div className="p-6">
-              <TabsContent value="active" className="mt-0">
-                {/* Email Queue Section */}
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-blue-600" />
-                      Queue Pengiriman Email Hari Ini
+            <div className="p-4 sm:p-5 md:p-6">
+              <TabsContent value="active" className="mt-0 space-y-4 sm:space-y-5 md:space-y-6">
+                {/* Email Queue Section - Mobile optimized */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                        Queue Pengiriman Email Hari Ini
+                      </CardTitle>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="ml-auto"
                         onClick={fetchAllQueues}
                         disabled={isLoadingQueue}
+                        className="min-h-[40px] shrink-0"
                       >
                         {isLoadingQueue ? 'Memuat...' : 'Refresh'}
                       </Button>
-                    </CardTitle>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {emailQueue.length === 0 ? (
-                      <div className="text-gray-500">Tidak ada reminder email yang akan dikirim hari ini.</div>
+                      <div className="text-center py-6 sm:py-8 text-gray-500">
+                        <Mail className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm sm:text-base">Tidak ada reminder email yang akan dikirim hari ini.</p>
+                      </div>
                     ) : (
-                      <table className="w-full text-sm border">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="p-2 text-left">Judul</th>
-                            <th className="p-2 text-left">Penerima</th>
-                            <th className="p-2 text-left">Jenis</th>
-                            <th className="p-2 text-left">Waktu Kirim</th>
-                            <th className="p-2 text-left">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {emailQueue.map(reminder => (
-                            <tr key={reminder.id} className="border-t">
-                              <td className="p-2">{reminder.title}</td>
-                              <td className="p-2">{reminder.recipients.join(', ')}</td>
-                              <td className="p-2">{reminder.type}</td>
-                              <td className="p-2">09:00 AM</td>
-                              <td className="p-2">Queued</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <MobileTable>
+                        {emailQueue.map(reminder => (
+                          <MobileTableItem
+                            key={reminder.id}
+                            title={reminder.title}
+                            subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
+                            status={<Badge variant="outline">Queued</Badge>}
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
+                              <span className="text-sm text-gray-900">{reminder.type}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu:</span>
+                              <span className="text-sm text-gray-900">09:00 AM</span>
+                            </div>
+                          </MobileTableItem>
+                        ))}
+                      </MobileTable>
                     )}
                   </CardContent>
                 </Card>
-                {/* End Email Queue Section */}
                 
-                {/* WhatsApp Queue Section */}
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-green-600" />
+                {/* WhatsApp Queue Section - Mobile optimized */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                       Queue Pengiriman WhatsApp Hari Ini
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {whatsappQueue.length === 0 ? (
-                      <div className="text-gray-500">Tidak ada reminder WhatsApp yang akan dikirim hari ini.</div>
+                      <div className="text-center py-6 sm:py-8 text-gray-500">
+                        <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm sm:text-base">Tidak ada reminder WhatsApp yang akan dikirim hari ini.</p>
+                      </div>
                     ) : (
-                      <table className="w-full text-sm border">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="p-2 text-left">Judul</th>
-                            <th className="p-2 text-left">Penerima</th>
-                            <th className="p-2 text-left">Jenis</th>
-                            <th className="p-2 text-left">Waktu Kirim</th>
-                            <th className="p-2 text-left">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {whatsappQueue.map(reminder => (
-                            <tr key={`wa-${reminder.id}`} className="border-t">
-                              <td className="p-2">{reminder.title}</td>
-                              <td className="p-2">{reminder.recipients.join(', ')}</td>
-                              <td className="p-2">{reminder.type}</td>
-                              <td className="p-2">09:00 AM</td>
-                              <td className="p-2">Queued</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <MobileTable>
+                        {whatsappQueue.map(reminder => (
+                          <MobileTableItem
+                            key={`wa-${reminder.id}`}
+                            title={reminder.title}
+                            subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
+                            status={<Badge variant="outline">Queued</Badge>}
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
+                              <span className="text-sm text-gray-900">{reminder.type}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu:</span>
+                              <span className="text-sm text-gray-900">09:00 AM</span>
+                            </div>
+                          </MobileTableItem>
+                        ))}
+                      </MobileTable>
                     )}
                   </CardContent>
                 </Card>
-                {/* End WhatsApp Queue Section */}
                 
-                {/* Telegram Queue Section */}
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-blue-500" />
+                {/* Telegram Queue Section - Mobile optimized */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                       Queue Pengiriman Telegram Hari Ini
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {telegramQueue.length === 0 ? (
-                      <div className="text-gray-500">Tidak ada reminder Telegram yang akan dikirim hari ini.</div>
+                      <div className="text-center py-6 sm:py-8 text-gray-500">
+                        <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm sm:text-base">Tidak ada reminder Telegram yang akan dikirim hari ini.</p>
+                      </div>
                     ) : (
-                      <table className="w-full text-sm border">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="p-2 text-left">Judul</th>
-                            <th className="p-2 text-left">Penerima</th>
-                            <th className="p-2 text-left">Jenis</th>
-                            <th className="p-2 text-left">Waktu Kirim</th>
-                            <th className="p-2 text-left">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {telegramQueue.map(reminder => (
-                            <tr key={`tg-${reminder.id}`} className="border-t">
-                              <td className="p-2">{reminder.title}</td>
-                              <td className="p-2">{reminder.recipients.join(', ')}</td>
-                              <td className="p-2">{reminder.type}</td>
-                              <td className="p-2">09:00 AM</td>
-                              <td className="p-2">Queued</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <MobileTable>
+                        {telegramQueue.map(reminder => (
+                          <MobileTableItem
+                            key={`tg-${reminder.id}`}
+                            title={reminder.title}
+                            subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
+                            status={<Badge variant="outline">Queued</Badge>}
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
+                              <span className="text-sm text-gray-900">{reminder.type}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu:</span>
+                              <span className="text-sm text-gray-900">09:00 AM</span>
+                            </div>
+                          </MobileTableItem>
+                        ))}
+                      </MobileTable>
                     )}
                   </CardContent>
                 </Card>
-                {/* End Telegram Queue Section */}
                 
-                <div className="space-y-4">
+                {/* Active Reminders List - Enhanced mobile layout */}
+                <div className="space-y-3 sm:space-y-4">
                   {activeReminders.map((reminder) => {
                     const TypeIcon = getTypeIcon(reminder.type);
                     const logs = deliveryLogs.filter(log => log.reminderId === reminder.id);
                     return (
-                      <div key={reminder.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 flex-1">
-                            <TypeIcon className="h-8 w-8 text-blue-600" />
-                            <div>
-                              <h3 className="font-semibold">{reminder.title}</h3>
-                              <p className="text-sm text-gray-600">Kendaraan: {reminder.vehicle}</p>
-                              <p className="text-sm text-gray-600">Target: {reminder.triggerDate}</p>
-                              <div className="flex gap-1 mt-1">
-                                {reminder.daysBeforeAlert.map(day => (
-                                  <span key={day} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                    {day}d
+                      <Card key={reminder.id} className="shadow-sm hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 sm:gap-4 flex-1">
+                              <TypeIcon className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 shrink-0 mt-1" />
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-semibold text-base sm:text-lg text-gray-900 mb-1">{reminder.title}</h3>
+                                <div className="space-y-1">
+                                  <p className="text-sm text-gray-600">Kendaraan: {reminder.vehicle}</p>
+                                  <p className="text-sm text-gray-600">Target: {reminder.triggerDate}</p>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {reminder.daysBeforeAlert.map(day => (
+                                      <span key={day} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                        {day}d
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:items-end gap-2 sm:gap-3 shrink-0">
+                              <Badge className={getStatusBadge(reminder.status)}>
+                                {reminder.status}
+                              </Badge>
+                              <div className="text-sm text-gray-600 sm:text-right">
+                                Kirim berikutnya: {reminder.nextSend}
+                              </div>
+                              <div className="flex flex-wrap gap-1 sm:justify-end">
+                                {reminder.channels.map(channel => (
+                                  <span key={channel} className="text-xs flex items-center gap-1 bg-gray-50 px-2 py-1 rounded">
+                                    {channel === 'email' ? <Mail className="h-3 w-3" /> : <MessageCircle className="h-3 w-3" />}
+                                    {channel}
                                   </span>
                                 ))}
                               </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleHistory(reminder.id)}
+                                className="min-h-[40px] w-full sm:w-auto"
+                              >
+                                {expandedReminderId === reminder.id ? 'Hide History' : 'View History'}
+                              </Button>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <Badge className={getStatusBadge(reminder.status)}>
-                              {reminder.status}
-                            </Badge>
-                            <div className="text-sm text-gray-600 mt-1">
-                              Kirim berikutnya: {reminder.nextSend}
-                            </div>
-                            <div className="flex gap-1 mt-2">
-                              {reminder.channels.map(channel => (
-                                <span key={channel} className="text-xs flex items-center gap-1">
-                                  {channel === 'email' ? <Mail className="h-3 w-3" /> : <MessageCircle className="h-3 w-3" />}
-                                  {channel}
-                                </span>
-                              ))}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-2"
-                              onClick={() => handleToggleHistory(reminder.id)}
-                            >
-                              {expandedReminderId === reminder.id ? 'Hide History' : 'View History'}
-                            </Button>
-                          </div>
-                        </div>
-                        {expandedReminderId === reminder.id && (
-                          <div className="mt-4 border-t pt-4">
-                            <h4 className="font-semibold mb-2">Delivery History</h4>
-                            {logs.length === 0 ? (
-                              <div className="text-gray-500 text-sm">No delivery logs for this reminder.</div>
-                            ) : (
-                              <table className="w-full text-xs border">
-                                <thead>
-                                  <tr className="bg-gray-50">
-                                    <th className="p-2 text-left">Date/Time</th>
-                                    <th className="p-2 text-left">Channel</th>
-                                    <th className="p-2 text-left">Recipient</th>
-                                    <th className="p-2 text-left">Status</th>
-                                    <th className="p-2 text-left">Error</th>
-                                    <th className="p-2 text-left">Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
+                          {expandedReminderId === reminder.id && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h4 className="font-semibold mb-3 text-sm sm:text-base">Delivery History</h4>
+                              {logs.length === 0 ? (
+                                <div className="text-gray-500 text-sm text-center py-4">No delivery logs for this reminder.</div>
+                              ) : (
+                                <div className="space-y-2 sm:space-y-3">
                                   {logs.map((log, idx) => (
-                                    <tr key={idx} className="border-t">
-                                      <td className="p-2">{log.sentAt ? new Date(log.sentAt).toLocaleString('id-ID') : '-'}</td>
-                                      <td className="p-2">{log.channel}</td>
-                                      <td className="p-2">{log.recipient}</td>
-                                      <td className="p-2">
-                                        <span className={
-                                          log.status === 'delivered' ? 'text-green-600' :
-                                          log.status === 'failed' ? 'text-red-600' :
-                                          'text-gray-600'
-                                        }>
-                                          {log.status}
-                                        </span>
-                                      </td>
-                                      <td className="p-2 text-xs text-red-600">{log.errorMessage || '-'}</td>
-                                      <td className="p-2">
-                                        {log.status === 'failed' && (
+                                    <div key={idx} className="border rounded-lg p-3 sm:p-4 bg-gray-50">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-sm">
+                                        <div>
+                                          <span className="font-medium text-gray-700">Date/Time:</span>
+                                          <p className="text-gray-900">{log.sentAt ? new Date(log.sentAt).toLocaleString('id-ID') : '-'}</p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">Channel:</span>
+                                          <p className="text-gray-900">{log.channel}</p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">Recipient:</span>
+                                          <p className="text-gray-900 truncate">{log.recipient}</p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">Status:</span>
+                                          <span className={
+                                            log.status === 'delivered' ? 'text-green-600' :
+                                            log.status === 'failed' ? 'text-red-600' :
+                                            'text-gray-600'
+                                          }>
+                                            {log.status}
+                                          </span>
+                                        </div>
+                                        {log.errorMessage && (
+                                          <div className="sm:col-span-2">
+                                            <span className="font-medium text-gray-700">Error:</span>
+                                            <p className="text-red-600 text-xs mt-1">{log.errorMessage}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {log.status === 'failed' && (
+                                        <div className="mt-3 pt-3 border-t border-gray-200">
                                           <Button
                                             variant="outline"
-                                            size="xs"
+                                            size="sm"
                                             onClick={() => handleRetry(reminder, log)}
+                                            className="min-h-[40px]"
                                           >
                                             Retry
                                           </Button>
-                                        )}
-                                      </td>
-                                    </tr>
+                                        </div>
+                                      )}
+                                    </div>
                                   ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>
@@ -1166,88 +1202,110 @@ const ReminderManagement = () => {
               </TabsContent>
 
               <TabsContent value="templates" className="mt-0">
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {predefinedTemplates.map((template) => (
-                    <div key={template.type} className="border rounded-lg p-4 bg-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold">{template.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Default alert days: {template.defaultDays.join(', ')} hari sebelumnya
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1 font-mono bg-gray-50 p-2 rounded">
-                            {template.messageTemplate}
-                          </p>
+                    <Card key={template.type} className="shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-4 sm:p-5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-base sm:text-lg text-gray-900 mb-2">{template.title}</h3>
+                            <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-500">
+                                <span className="font-medium">Default alert days:</span> {template.defaultDays.join(', ')} hari sebelumnya
+                              </p>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <p className="text-xs text-gray-500 mb-1 font-medium">Template Message:</p>
+                                <p className="text-xs text-gray-700 font-mono leading-relaxed">
+                                  {template.messageTemplate}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="min-h-[40px] w-full sm:w-auto"
+                            >
+                              Edit Template
+                            </Button>
+                          </div>
                         </div>
-                        <Button variant="outline" size="sm">
-                          Edit Template
-                        </Button>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </TabsContent>
 
               <TabsContent value="contacts" className="mt-0">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-2">Manajemen Kontak</CardTitle>
-                    <Button onClick={() => { setShowAddContact(true); setEditingContact(null); }} className="mt-2" size="sm">Tambah Kontak</Button>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200 text-sm">
-                          {contacts.map((c: any) => (
-                            <tr key={c.id}>
-                              <td className="px-4 py-2">{c.name}</td>
-                              <td className="px-4 py-2">{c.email}</td>
-                              <td className="px-4 py-2">{c.whatsapp}</td>
-                              <td className="px-4 py-2 flex gap-2">
-                                <Button size="sm" variant="outline" onClick={() => handleEditContact(c)}>Edit</Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteContact(c.id)}>Hapus</Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <CardTitle className="text-lg sm:text-xl font-semibold">Manajemen Kontak</CardTitle>
+                      <Button 
+                        onClick={() => { setShowAddContact(true); setEditingContact(null); }} 
+                        size="sm"
+                        className="min-h-[44px] w-full sm:w-auto"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Tambah Kontak
+                      </Button>
                     </div>
-                    {/* Add/Edit Contact Modal */}
-                    {showAddContact && (
-                      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-                        <Card className="w-full max-w-md shadow-lg">
-                          <CardHeader>
-                            <CardTitle className="text-lg font-semibold">{editingContact ? 'Edit Kontak' : 'Tambah Kontak'}</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="contact-name">Nama</Label>
-                              <Input id="contact-name" placeholder="Nama" value={newContact.name} onChange={e => setNewContact({ ...newContact, name: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="contact-email">Email</Label>
-                              <Input id="contact-email" placeholder="Email" value={newContact.email} onChange={e => setNewContact({ ...newContact, email: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="contact-wa">WhatsApp (cth: 6281234567890)</Label>
-                              <Input id="contact-wa" placeholder="WhatsApp" value={newContact.whatsapp} onChange={e => setNewContact({ ...newContact, whatsapp: e.target.value.replace(/\D/g, '') })} />
-                            </div>
-                            <div className="flex gap-2 pt-2">
-                              <Button onClick={editingContact ? handleSaveEditContact : handleAddContact} className="flex-1">Simpan</Button>
-                              <Button variant="outline" onClick={() => { setShowAddContact(false); setEditingContact(null); setNewContact({ name: '', email: '', whatsapp: '' }); }} className="flex-1">Batal</Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+                  </CardHeader>
+                  <CardContent>
+                    {contacts.length === 0 ? (
+                      <div className="text-center py-8 sm:py-12 text-gray-500">
+                        <Users className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-gray-300" />
+                        <p className="text-sm sm:text-base mb-4">Belum ada kontak yang ditambahkan</p>
+                        <Button 
+                          onClick={() => { setShowAddContact(true); setEditingContact(null); }}
+                          size="sm"
+                          className="min-h-[44px]"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Tambah Kontak Pertama
+                        </Button>
                       </div>
+                    ) : (
+                      <MobileTable>
+                        {contacts.map((contact: any) => (
+                          <MobileTableItem
+                            key={contact.id}
+                            title={contact.name}
+                            subtitle={contact.email}
+                            actions={
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleEditContact(contact)}
+                                  className="min-h-[40px] flex-1"
+                                >
+                                  Edit
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive" 
+                                  onClick={() => handleDeleteContact(contact.id)}
+                                  className="min-h-[40px] flex-1"
+                                >
+                                  Hapus
+                                </Button>
+                              </div>
+                            }
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp:</span>
+                              <span className="text-sm text-gray-900">{contact.whatsapp}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-3">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Ditambahkan:</span>
+                              <span className="text-sm text-gray-900">{new Date(contact.createdAt).toLocaleDateString('id-ID')}</span>
+                            </div>
+                          </MobileTableItem>
+                        ))}
+                      </MobileTable>
                     )}
                   </CardContent>
                 </Card>
@@ -1256,6 +1314,103 @@ const ReminderManagement = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Contact Management Modal - Enhanced responsive modal */}
+      <ResponsiveModal
+        open={showAddContact}
+        onOpenChange={setShowAddContact}
+        title={editingContact ? 'Edit Kontak' : 'Tambah Kontak'}
+        size="md"
+        footer={
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+            <Button 
+              onClick={editingContact ? handleSaveEditContact : handleAddContact} 
+              className="min-h-[44px] flex-1 order-2 sm:order-1"
+            >
+              {editingContact ? 'Update Kontak' : 'Simpan Kontak'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => { 
+                setShowAddContact(false); 
+                setEditingContact(null); 
+                setNewContact({ name: '', email: '', whatsapp: '' }); 
+              }} 
+              className="min-h-[44px] flex-1 order-1 sm:order-2"
+            >
+              Batal
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 sm:space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="contact-name" className="text-sm font-medium">Nama Lengkap</Label>
+            <Input 
+              id="contact-name" 
+              placeholder="Masukkan nama lengkap" 
+              value={newContact.name} 
+              onChange={e => setNewContact({ ...newContact, name: e.target.value })}
+              className="min-h-[44px]"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contact-email" className="text-sm font-medium">Email</Label>
+            <Input 
+              id="contact-email" 
+              type="email"
+              placeholder="contoh@email.com" 
+              value={newContact.email} 
+              onChange={e => setNewContact({ ...newContact, email: e.target.value })}
+              className="min-h-[44px]"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contact-wa" className="text-sm font-medium">Nomor WhatsApp</Label>
+            <Input 
+              id="contact-wa" 
+              placeholder="6281234567890" 
+              value={newContact.whatsapp} 
+              onChange={e => setNewContact({ ...newContact, whatsapp: e.target.value.replace(/\D/g, '') })}
+              className="min-h-[44px]"
+            />
+            <p className="text-xs text-gray-500">Gunakan format kode negara, contoh: 6281234567890</p>
+          </div>
+        </div>
+      </ResponsiveModal>
+
+      {/* Other modals with responsive design */}
+      {showCreateForm && <CreateReminderForm />}
+      {showSettings && (
+        <ResponsiveModal
+          open={showSettings}
+          onOpenChange={setShowSettings}
+          title="Pengaturan Reminder"
+          size="lg"
+        >
+          <ReminderSettings />
+        </ResponsiveModal>
+      )}
+      {showTemplateManager && (
+        <ResponsiveModal
+          open={showTemplateManager}
+          onOpenChange={setShowTemplateManager}
+          title="Manajemen Template"
+          size="xl"
+        >
+          <EmailTemplateManager />
+        </ResponsiveModal>
+      )}
+      {showTargetingManager && (
+        <ResponsiveModal
+          open={showTargetingManager}
+          onOpenChange={setShowTargetingManager}
+          title="Manajemen Target Email"
+          size="lg"
+        >
+          <EmailTargetingManager />
+        </ResponsiveModal>
+      )}
     </div>
   );
 };

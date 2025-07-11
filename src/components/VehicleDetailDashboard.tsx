@@ -31,6 +31,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ResponsiveModal } from './ResponsiveDialog';
+import { MobileTable, MobileTableItem } from './ResponsiveTable';
 import VehicleHealthIndicator from './VehicleHealthIndicator';
 import ServiceLogbook from './ServiceLogbook';
 import { useToast } from '@/hooks/use-toast';
@@ -478,38 +480,40 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">{vehicle.platNomor}</h2>
-          <p className="text-gray-600">{vehicle.merek} {vehicle.model} ({vehicle.tahunPembuatan})</p>
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      {/* Header Section - Enhanced responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{vehicle.platNomor}</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{vehicle.merek} {vehicle.model} ({vehicle.tahunPembuatan})</p>
         </div>
-        <VehicleHealthIndicator
-          vehicleId={vehicle.id}
-          kmTempuh={vehicleDetails.kmTerakhir}
-          tahunPembuatan={vehicle.tahunPembuatan}
-          lastServiceDays={vehicleDetails.lastServiceDate ? 
-            Math.floor((new Date().getTime() - new Date(vehicleDetails.lastServiceDate).getTime()) / (1000 * 60 * 60 * 24)) : 
-            999
-          }
-          totalPerbaikan={vehicleDetails.totalPerbaikan}
-        />
+        <div className="shrink-0 w-full sm:w-auto">
+          <VehicleHealthIndicator
+            vehicleId={vehicle.id}
+            kmTempuh={vehicleDetails.kmTerakhir}
+            tahunPembuatan={vehicle.tahunPembuatan}
+            lastServiceDays={vehicleDetails.lastServiceDate ? 
+              Math.floor((new Date().getTime() - new Date(vehicleDetails.lastServiceDate).getTime()) / (1000 * 60 * 60 * 24)) : 
+              999
+            }
+            totalPerbaikan={vehicleDetails.totalPerbaikan}
+          />
+        </div>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
+      {/* Key Metrics Cards - Enhanced responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">KM Terakhir</p>
-                <p className="text-2xl font-bold">{vehicleDetails.kmTerakhir.toLocaleString('id-ID')}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm sm:text-sm font-medium text-gray-600">KM Terakhir</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{vehicleDetails.kmTerakhir.toLocaleString('id-ID')}</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
+              <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 shrink-0" />
             </div>
             {vehicleDetails.kmTerakhir > 0 && (
-              <div className="mt-4">
+              <div className="mt-3 sm:mt-4">
                 <Progress value={(vehicleDetails.kmTerakhir / vehicleDetails.nextServiceKm) * 100} className="h-2" />
                 <p className="text-xs text-gray-500 mt-1">
                   {vehicleDetails.nextServiceKm - vehicleDetails.kmTerakhir} KM hingga servis
@@ -519,47 +523,47 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Konsumsi BBM</p>
-                <p className="text-2xl font-bold">{vehicleDetails.fuelConsumption}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm sm:text-sm font-medium text-gray-600">Konsumsi BBM</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold">{vehicleDetails.fuelConsumption}</p>
                 <p className="text-xs text-gray-500">km/liter</p>
               </div>
-              <Fuel className="h-8 w-8 text-green-600" />
+              <Fuel className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 shrink-0" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Utilisasi</p>
-                <p className="text-2xl font-bold">{vehicleDetails.utilizationRate}%</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm sm:text-sm font-medium text-gray-600">Utilisasi</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold">{vehicleDetails.utilizationRate}%</p>
                 <p className="text-xs text-gray-500">rata-rata</p>
               </div>
-              <BarChart3 className="h-8 w-8 text-purple-600" />
+              <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 shrink-0" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
+          <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Biaya Bulan Ini</p>
-                <p className="text-2xl font-bold">Rp {vehicleDetails.totalBiayaBulanIni.toLocaleString('id-ID')}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm sm:text-sm font-medium text-gray-600">Biaya Bulan Ini</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">Rp {vehicleDetails.totalBiayaBulanIni.toLocaleString('id-ID')}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-orange-600" />
+              <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 shrink-0" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Status & Location Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Status & Location Info - Enhanced responsive layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -632,40 +636,55 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
         </Card>
       </div>
 
-      {/* Tabs for detailed information */}
-      <Card>
+      {/* Tabs for detailed information - Enhanced responsive design */}
+      <Card className="shadow-sm">
         <CardContent className="p-0">
           <Tabs defaultValue="activities" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="activities">Aktivitas Terkini</TabsTrigger>
-              <TabsTrigger value="logbook">Service Logbook</TabsTrigger>
-              <TabsTrigger value="photos">Foto Kendaraan</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            {/* Mobile-optimized tab list */}
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+              <TabsTrigger value="activities" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Aktivitas Terkini</span>
+                <span className="sm:hidden">Aktivitas</span>
+              </TabsTrigger>
+              <TabsTrigger value="logbook" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Service Logbook</span>
+                <span className="sm:hidden">Logbook</span>
+              </TabsTrigger>
+              <TabsTrigger value="photos" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Foto Kendaraan</span>
+                <span className="sm:hidden">Foto</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="text-xs sm:text-sm p-2 sm:p-3">Analytics</TabsTrigger>
             </TabsList>
             
-            <div className="p-6">
-              <TabsContent value="activities" className="mt-0">
-                <div className="space-y-6">
-                  {/* Header with Filters */}
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Aktivitas Terkini</h3>
-                    <div className="flex items-center gap-2">
+            <div className="p-4 sm:p-5 md:p-6">
+              <TabsContent value="activities" className="mt-0 space-y-4 sm:space-y-5 md:space-y-6">
+                {/* Header with Filters - Enhanced mobile layout */}
+                <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-semibold">Aktivitas Terkini</h3>
+                    <p className="text-sm text-gray-600 mt-1 hidden sm:block">Kelola dan pantau semua aktivitas kendaraan</p>
+                  </div>
+                  
+                  {/* Mobile-optimized filters */}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
                       <Select value={activityTimeFilter} onValueChange={setActivityTimeFilter}>
-                        <SelectTrigger className="w-[140px]">
-                          <Filter className="h-4 w-4 mr-2" />
+                        <SelectTrigger className="min-h-[44px] text-xs sm:text-sm">
+                          <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="7">7 Hari Terakhir</SelectItem>
-                          <SelectItem value="30">30 Hari Terakhir</SelectItem>
-                          <SelectItem value="90">3 Bulan Terakhir</SelectItem>
-                          <SelectItem value="365">1 Tahun Terakhir</SelectItem>
-                          <SelectItem value="0">Semua Waktu</SelectItem>
+                          <SelectItem value="7">7 Hari</SelectItem>
+                          <SelectItem value="30">30 Hari</SelectItem>
+                          <SelectItem value="90">3 Bulan</SelectItem>
+                          <SelectItem value="365">1 Tahun</SelectItem>
+                          <SelectItem value="0">Semua</SelectItem>
                         </SelectContent>
                       </Select>
                       
                       <Select value={activityTypeFilter} onValueChange={setActivityTypeFilter}>
-                        <SelectTrigger className="w-[120px]">
+                        <SelectTrigger className="min-h-[44px] text-xs sm:text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -674,85 +693,86 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                           <SelectItem value="cost">Operasional</SelectItem>
                         </SelectContent>
                       </Select>
-                      
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
                     </div>
+                    
+                    <Button variant="outline" size="sm" className="min-h-[44px] w-full sm:w-auto">
+                      <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                      <span className="text-xs sm:text-sm">Export</span>
+                    </Button>
                   </div>
+                </div>
 
-                  {/* Summary Statistics */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="pt-4 pb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-600">Total Aktivitas</p>
-                            <p className="text-2xl font-bold">{activityData.summary.totalActivities}</p>
-                          </div>
-                          <FileText className="h-6 w-6 text-blue-600" />
+                {/* Summary Statistics - Enhanced responsive grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <Card className="shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm text-gray-600">Total Aktivitas</p>
+                          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{activityData.summary.totalActivities}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="pt-4 pb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-600">Total Biaya</p>
-                            <p className="text-xl font-bold">Rp {activityData.summary.totalCost.toLocaleString('id-ID')}</p>
-                          </div>
-                          <DollarSign className="h-6 w-6 text-green-600" />
+                        <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 shrink-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm text-gray-600">Total Biaya</p>
+                          <p className="text-base sm:text-lg md:text-xl font-bold truncate">Rp {activityData.summary.totalCost.toLocaleString('id-ID')}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="pt-4 pb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-600">Maintenance</p>
-                            <p className="text-xl font-bold">{activityData.summary.maintenanceCount}x</p>
-                            <p className="text-xs text-gray-500">Rp {activityData.summary.maintenanceCost.toLocaleString('id-ID')}</p>
-                          </div>
-                          <Wrench className="h-6 w-6 text-orange-600" />
+                        <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 shrink-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm text-gray-600">Maintenance</p>
+                          <p className="text-lg sm:text-xl md:text-2xl font-bold">{activityData.summary.maintenanceCount}x</p>
+                          <p className="text-xs text-gray-500 truncate">Rp {activityData.summary.maintenanceCost.toLocaleString('id-ID')}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="pt-4 pb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-600">Rata-rata/Aktivitas</p>
-                            <p className="text-lg font-bold">Rp {activityData.summary.averageCost.toLocaleString('id-ID')}</p>
-                          </div>
-                          <BarChart3 className="h-6 w-6 text-purple-600" />
+                        <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 shrink-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="shadow-sm hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm text-gray-600">Rata-rata/Aktivitas</p>
+                          <p className="text-base sm:text-lg md:text-xl font-bold truncate">Rp {activityData.summary.averageCost.toLocaleString('id-ID')}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                        <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 shrink-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                  {/* Category Breakdown */}
+                  {/* Category Breakdown - Enhanced mobile layout */}
                   {Object.keys(activityData.categoryBreakdown).length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <PieChart className="h-5 w-5" />
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                          <PieChart className="h-4 w-4 sm:h-5 sm:w-5" />
                           Breakdown by Category
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           {Object.entries(activityData.categoryBreakdown).map(([category, data]) => (
-                            <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div>
-                                <p className="font-medium text-sm">{category}</p>
+                            <div key={category} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm sm:text-base truncate">{category}</p>
                                 <p className="text-xs text-gray-500">{data.count} aktivitas</p>
                               </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-sm">Rp {(data.totalCost ?? 0).toLocaleString('id-ID')}</p>
+                              <div className="text-right shrink-0 ml-3">
+                                <p className="font-semibold text-sm sm:text-base">Rp {(data.totalCost ?? 0).toLocaleString('id-ID')}</p>
                                 <p className="text-xs text-gray-500">
                                   {activityData.summary.totalCost > 0 ? 
                                     Math.round((data.totalCost / activityData.summary.totalCost) * 100) : 0}%
@@ -765,124 +785,139 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                     </Card>
                   )}
 
-                  {/* Activity List */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Daftar Aktivitas</CardTitle>
+                  {/* Activity List - Enhanced mobile layout */}
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-base sm:text-lg">Daftar Aktivitas</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {activityData.recentActivities.length === 0 ? (
-                        <div className="text-center text-gray-500 py-8">
-                          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                          <p>Tidak ada aktivitas dalam periode ini</p>
-                          <p className="text-sm">Coba ubah filter waktu atau tipe aktivitas</p>
+                        <div className="text-center text-gray-500 py-8 sm:py-12">
+                          <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-sm sm:text-base font-medium">Tidak ada aktivitas dalam periode ini</p>
+                          <p className="text-xs sm:text-sm mt-1">Coba ubah filter waktu atau tipe aktivitas</p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <MobileTable>
                           {activityData.recentActivities.map((activity) => (
-                            <div key={activity.id} className="flex items-center gap-4 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                              {getActivityIcon(activity.type)}
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{activity.description}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <p className="text-xs text-gray-500">{new Date(activity.date).toLocaleDateString('id-ID')}</p>
-                                  <Badge variant="outline" className="text-xs">
-                                    {activity.category}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-sm">
-                                  Rp {(activity.cost ?? 0).toLocaleString('id-ID')}
-                                </p>
+                            <MobileTableItem
+                              key={activity.id}
+                              title={activity.description}
+                              subtitle={new Date(activity.date).toLocaleDateString('id-ID')}
+                              status={
                                 <Badge variant={activity.type === 'maintenance' ? 'destructive' : 'secondary'} className="text-xs">
                                   {activity.type === 'maintenance' ? 'Maintenance' : 'Operasional'}
                                 </Badge>
+                              }
+                            >
+                              <div className="flex justify-between items-start gap-3">
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori:</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {activity.category}
+                                </Badge>
                               </div>
-                            </div>
+                              <div className="flex justify-between items-start gap-3">
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Biaya:</span>
+                                <span className="text-sm font-semibold text-gray-900">
+                                  Rp {(activity.cost ?? 0).toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-start gap-3">
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
+                                <div className="flex items-center gap-2">
+                                  {getActivityIcon(activity.type)}
+                                  <span className="text-sm text-gray-900">
+                                    {activity.type === 'maintenance' ? 'Maintenance' : 'Operasional'}
+                                  </span>
+                                </div>
+                              </div>
+                            </MobileTableItem>
                           ))}
-                        </div>
+                        </MobileTable>
                       )}
                     </CardContent>
                   </Card>
-                </div>
               </TabsContent>
 
               <TabsContent value="logbook" className="mt-0">
                 <ServiceLogbook vehicleId={vehicle.id.toString()} refreshVehicleData={refreshVehicleData} />
               </TabsContent>
 
-              <TabsContent value="photos" className="mt-0">
-                <div className="space-y-6">
-                  {/* Header with Upload Button */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold">Foto Kendaraan</h3>
-                      <p className="text-sm text-gray-600">Kelola galeri foto untuk {vehicle.platNomor}</p>
-                    </div>
-                    <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Camera className="h-4 w-4 mr-2" />
-                          Upload Foto
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Upload Foto Kendaraan</DialogTitle>
-                        </DialogHeader>
-                        <PhotoUploadForm
-                          onUpload={handlePhotoUpload}
-                          uploading={uploadingPhoto}
-                          onCancel={() => setShowPhotoUpload(false)}
-                        />
-                      </DialogContent>
-                    </Dialog>
+              <TabsContent value="photos" className="mt-0 space-y-4 sm:space-y-5 md:space-y-6">
+                <div>
+                {/* Header with Upload Button - Enhanced mobile layout */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg sm:text-xl font-semibold">Foto Kendaraan</h3>
+                    <p className="text-sm text-gray-600 mt-1">Kelola galeri foto untuk {vehicle.platNomor}</p>
                   </div>
+                  <ResponsiveModal
+                    open={showPhotoUpload}
+                    onOpenChange={setShowPhotoUpload}
+                    title="Upload Foto Kendaraan"
+                    size="md"
+                  >
+                    <PhotoUploadForm
+                      onUpload={handlePhotoUpload}
+                      uploading={uploadingPhoto}
+                      onCancel={() => setShowPhotoUpload(false)}
+                    />
+                  </ResponsiveModal>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowPhotoUpload(true)}
+                    className="min-h-[44px] w-full sm:w-auto shrink-0"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Upload Foto
+                  </Button>
+                </div>
 
-                  {/* Photo Statistics */}
-                  {photos.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                      {(['front', 'side', 'rear', 'interior'] as const).map(category => {
-                        const categoryPhotos = photos.filter(p => p.category === category);
-                        const categoryInfo = getCategoryInfo(category);
-                        return (
-                          <Card key={category}>
-                            <CardContent className="pt-4 pb-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm text-gray-600">{categoryInfo.name}</p>
-                                  <p className="text-lg font-bold">{categoryPhotos.length}</p>
-                                </div>
-                                <span className="text-lg">{categoryInfo.icon}</span>
+                {/* Photo Statistics - Enhanced responsive grid */}
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {(['front', 'side', 'rear', 'interior'] as const).map(category => {
+                      const categoryPhotos = photos.filter(p => p.category === category);
+                      const categoryInfo = getCategoryInfo(category);
+                      return (
+                        <Card key={category} className="shadow-sm hover:shadow-md transition-shadow">
+                          <CardContent className="p-4 sm:p-5">
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs sm:text-sm text-gray-600 truncate">{categoryInfo.name}</p>
+                                <p className="text-lg sm:text-xl font-bold">{categoryPhotos.length}</p>
                               </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
+                              <span className="text-base sm:text-lg shrink-0">{categoryInfo.icon}</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
 
-                  {/* Photo Grid */}
-                  {photos.length === 0 ? (
-                    <Card>
-                      <CardContent className="pt-8 pb-8">
-                        <div className="text-center text-gray-500">
-                          <Camera className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                          <h4 className="text-lg font-medium mb-2">Belum Ada Foto</h4>
-                          <p className="text-sm mb-4">Upload foto pertama untuk kendaraan {vehicle.platNomor}</p>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setShowPhotoUpload(true)}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Upload Foto Pertama
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {/* Photo Grid - Enhanced mobile layout */}
+                {photos.length === 0 ? (
+                  <Card className="shadow-sm">
+                    <CardContent className="p-6 sm:p-8 md:p-10">
+                      <div className="text-center text-gray-500">
+                        <Camera className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-gray-300" />
+                        <h4 className="text-base sm:text-lg font-medium mb-2">Belum Ada Foto</h4>
+                        <p className="text-sm mb-4">Upload foto pertama untuk kendaraan {vehicle.platNomor}</p>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowPhotoUpload(true)}
+                          className="min-h-[44px]"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Upload Foto Pertama
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                       {photos.map((photo) => {
                         const categoryInfo = getCategoryInfo(photo.category);
                         return (
@@ -954,7 +989,6 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                       })}
                     </div>
                   )}
-                </div>
 
                 {/* Photo Viewer Modal */}
                 <PhotoViewerModal
@@ -978,6 +1012,7 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
                   onClose={() => setEditingPhoto(null)}
                   onSave={handlePhotoEdit}
                 />
+                </div>
               </TabsContent>
 
               <TabsContent value="analytics" className="mt-0">
