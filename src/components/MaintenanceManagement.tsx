@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Calendar, Wrench, Plus, Clock, AlertCircle, Trash2, Edit, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonMobile } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { localStorageService, MaintenanceRecord, Vehicle } from '@/services/LocalStorageService';
 import { reminderService } from './ReminderService';
+import { MobileTable, MobileTableItem } from './ResponsiveTable';
+import { useResponsive } from '@/hooks/use-responsive';
 
 // Types for form data
 interface ScheduleFormData {
@@ -170,29 +172,37 @@ const ScheduleForm = memo<ScheduleFormProps>(({
             onChange={onInputChange}
           />
         </div>
-        <div className="flex gap-2 pt-4">
-          <Button 
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 pt-4">
+          <ButtonMobile 
             type="submit" 
-            className="flex-1" 
+            className="flex-1 min-h-[44px] order-2 sm:order-1" 
             disabled={submitting}
+            fullWidth
           >
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {editMode ? 'Memperbarui Jadwal...' : 'Membuat Jadwal...'}
+                {editMode ? 'Memperbarui...' : 'Membuat...'}
               </>
             ) : (
-              editMode ? 'Perbarui Jadwal Perawatan' : 'Buat Jadwal Perawatan'
+              <span className="hidden sm:inline">
+                {editMode ? 'Perbarui Jadwal Perawatan' : 'Buat Jadwal Perawatan'}
+              </span>
             )}
-          </Button>
-          <Button 
+            <span className="sm:hidden">
+              {editMode ? 'Perbarui' : 'Buat Jadwal'}
+            </span>
+          </ButtonMobile>
+          <ButtonMobile 
             type="button" 
             variant="outline" 
             onClick={onCancel}
             disabled={submitting}
+            className="min-h-[44px] order-1 sm:order-2"
+            fullWidth
           >
             Batal
-          </Button>
+          </ButtonMobile>
         </div>
       </form>
     </CardContent>
@@ -317,72 +327,79 @@ const RepairForm = memo<RepairFormProps>(({
           />
         </div>
         
-        {/* Dynamic Spare Parts Section */}
+        {/* Dynamic Spare Parts Section - Enhanced responsive layout */}
         <div className="space-y-4 border-t pt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <Label className="text-base font-semibold">Suku Cadang yang Digunakan</Label>
-            <Button 
+            <ButtonMobile 
               type="button" 
               variant="outline" 
               size="sm" 
               onClick={onSparePartAdd}
               disabled={submitting}
+              className="min-h-[40px] w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-1" />
               Tambah Suku Cadang
-            </Button>
+            </ButtonMobile>
           </div>
           
           {spareParts.map((part, index) => (
-            <div key={part.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
-              <div className="space-y-2">
-                <Label htmlFor={`namaSukuCadang_${index}`}>Nama Suku Cadang</Label>
-                <Input 
-                  id={`namaSukuCadang_${index}`} 
-                  placeholder="Oli mesin, Filter udara, dll." 
-                  value={part.nama}
-                  onChange={(e) => onSparePartNameChange(index, e.target.value)}
-                />
+            <div key={part.id} className="border rounded-lg p-4 space-y-4">
+              {/* Mobile: Stack all fields vertically */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <Label htmlFor={`namaSukuCadang_${index}`}>Nama Suku Cadang</Label>
+                  <Input 
+                    id={`namaSukuCadang_${index}`} 
+                    placeholder="Oli mesin, Filter udara, dll." 
+                    value={part.nama}
+                    onChange={(e) => onSparePartNameChange(index, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`jumlahSukuCadang_${index}`}>Jumlah</Label>
+                  <Input 
+                    id={`jumlahSukuCadang_${index}`} 
+                    type="number" 
+                    placeholder="1" 
+                    value={part.jumlah.toString()}
+                    onChange={(e) => onSparePartQuantityChange(index, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`hargaSatuan_${index}`}>Harga Satuan</Label>
+                  <Input 
+                    id={`hargaSatuan_${index}`} 
+                    type="number" 
+                    placeholder="150000" 
+                    value={part.harga > 0 ? part.harga.toString() : ''}
+                    onChange={(e) => onSparePartPriceChange(index, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Subtotal</Label>
+                  <Input 
+                    value={`Rp ${(part.jumlah * part.harga).toLocaleString('id-ID')}`} 
+                    disabled 
+                    className="bg-gray-50"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={`jumlahSukuCadang_${index}`}>Jumlah</Label>
-                <Input 
-                  id={`jumlahSukuCadang_${index}`} 
-                  type="number" 
-                  placeholder="1" 
-                  value={part.jumlah.toString()}
-                  onChange={(e) => onSparePartQuantityChange(index, e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`hargaSatuan_${index}`}>Harga Satuan</Label>
-                <Input 
-                  id={`hargaSatuan_${index}`} 
-                  type="number" 
-                  placeholder="150000" 
-                  value={part.harga > 0 ? part.harga.toString() : ''}
-                  onChange={(e) => onSparePartPriceChange(index, e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Subtotal</Label>
-                <Input 
-                  value={`Rp ${(part.jumlah * part.harga).toLocaleString('id-ID')}`} 
-                  disabled 
-                />
-              </div>
-              <div className="flex items-end">
-                <Button 
+              
+              {/* Remove button - Full width on mobile */}
+              <div className="pt-2 border-t border-gray-100">
+                <ButtonMobile 
                   type="button" 
                   variant="destructive" 
                   size="sm" 
-                  className="w-full"
+                  className="w-full sm:w-auto min-h-[40px]"
                   onClick={() => onSparePartRemove(index)}
                   disabled={submitting}
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Hapus
-                </Button>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Hapus Suku Cadang
+                </ButtonMobile>
               </div>
             </div>
           ))}
@@ -1104,19 +1121,40 @@ const MaintenanceManagement = () => {
 
 
 
+  const { isMobile, isTablet } = useResponsive();
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Manajemen Perawatan & Servis</h1>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowScheduleForm(!showScheduleForm)} className="flex items-center gap-2">
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      {/* Header Section - Enhanced responsive layout */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+            Manajemen Perawatan & Servis
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            Kelola jadwal perawatan dan catat riwayat perbaikan kendaraan
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2 shrink-0">
+          <ButtonMobile 
+            onClick={() => setShowScheduleForm(!showScheduleForm)} 
+            className="flex items-center justify-center gap-2 min-h-[44px]"
+            fullWidth={isMobile}
+          >
             <Calendar className="h-4 w-4" />
-            Jadwal Perawatan
-          </Button>
-          <Button onClick={() => setShowRepairForm(!showRepairForm)} variant="outline" className="flex items-center gap-2">
+            <span className="hidden sm:inline">Jadwal Perawatan</span>
+            <span className="sm:hidden">Jadwal</span>
+          </ButtonMobile>
+          <ButtonMobile 
+            onClick={() => setShowRepairForm(!showRepairForm)} 
+            variant="outline" 
+            className="flex items-center justify-center gap-2 min-h-[44px]"
+            fullWidth={isMobile}
+          >
             <Wrench className="h-4 w-4" />
-            Catat Perbaikan
-          </Button>
+            <span className="hidden sm:inline">Catat Perbaikan</span>
+            <span className="sm:hidden">Perbaikan</span>
+          </ButtonMobile>
         </div>
       </div>
 
@@ -1152,230 +1190,276 @@ const MaintenanceManagement = () => {
         />
       )}
 
-      {/* Upcoming Maintenance Alert */}
+      {/* Upcoming Maintenance Alert - Enhanced responsive layout */}
       <Card className="border-orange-200 bg-orange-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-700">
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-orange-700 text-base sm:text-lg">
             <AlertCircle className="h-5 w-5" />
             Perawatan Mendatang
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 sm:space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center p-8">
+            <div className="flex items-center justify-center p-6 sm:p-8">
               <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
               <span className="ml-2 text-orange-600">Memuat data...</span>
             </div>
           ) : upcomingMaintenance.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingMaintenance.map((maintenance) => {
-                const daysRemaining = maintenance.nextServiceDate 
-                  ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-                  : 0;
-                
-                return (
-                  <div key={maintenance.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <Clock className="h-6 w-6 text-orange-600" />
-                      <div>
-                        <div className="font-semibold">{maintenance.platNomor}</div>
-                        <div className="text-sm text-gray-600">{maintenance.jenisPerawatan}</div>
+            isMobile ? (
+              <MobileTable>
+                {upcomingMaintenance.map((maintenance) => {
+                  const daysRemaining = maintenance.nextServiceDate 
+                    ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  
+                  return (
+                    <MobileTableItem
+                      key={maintenance.id}
+                      title={maintenance.platNomor}
+                      subtitle={maintenance.jenisPerawatan}
+                      status={
+                        <Badge 
+                          variant="outline" 
+                          className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
+                        >
+                          {daysRemaining > 0 ? `${daysRemaining} hari` : 'Terlambat'}
+                        </Badge>
+                      }
+                      className="bg-white"
+                    >
+                      <div className="space-y-2">
+                        {maintenance.nextServiceDate && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Tanggal:</span> {new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID')}
+                          </div>
+                        )}
                         <div className="text-sm text-gray-600">
-                          {maintenance.kilometer > 0 && `KM Target: ${(maintenance.kilometer || 0).toLocaleString('id-ID')}`}
-                          {maintenance.nextServiceKm && ` / Next: ${(maintenance.nextServiceKm || 0).toLocaleString('id-ID')}`}
+                          <span className="font-medium">KM Saat Ini:</span> {(maintenance.kilometer || 0).toLocaleString('id-ID')}
+                        </div>
+                        {maintenance.nextServiceKm && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Target KM:</span> {(maintenance.nextServiceKm || 0).toLocaleString('id-ID')}
+                          </div>
+                        )}
+                      </div>
+                    </MobileTableItem>
+                  );
+                })}
+              </MobileTable>
+            ) : (
+              <div className="space-y-3">
+                {upcomingMaintenance.map((maintenance) => {
+                  const daysRemaining = maintenance.nextServiceDate 
+                    ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  
+                  return (
+                    <div key={maintenance.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <Clock className="h-6 w-6 text-orange-600" />
+                        <div>
+                          <div className="font-semibold">{maintenance.platNomor}</div>
+                          <div className="text-sm text-gray-600">{maintenance.jenisPerawatan}</div>
+                          <div className="text-sm text-gray-600">
+                            {maintenance.kilometer > 0 && `KM Target: ${(maintenance.kilometer || 0).toLocaleString('id-ID')}`}
+                            {maintenance.nextServiceKm && ` / Next: ${(maintenance.nextServiceKm || 0).toLocaleString('id-ID')}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge 
+                          variant="outline" 
+                          className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
+                        >
+                          {daysRemaining > 0 ? `${daysRemaining} hari lagi` : 'Terlambat'}
+                        </Badge>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {maintenance.nextServiceDate && new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID')}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge 
-                        variant="outline" 
-                        className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
-                      >
-                        {daysRemaining > 0 ? `${daysRemaining} hari lagi` : 'Terlambat'}
-                      </Badge>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {maintenance.nextServiceDate && new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID')}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Clock className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <p>Tidak ada perawatan yang dijadwalkan</p>
-              <Button 
+            <div className="text-center py-6 sm:py-8 text-gray-500">
+              <Clock className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-gray-300 mb-3 sm:mb-4" />
+              <p className="text-sm sm:text-base">Tidak ada perawatan yang dijadwalkan</p>
+              <ButtonMobile 
                 variant="outline" 
                 size="sm" 
-                className="mt-2"
+                className="mt-3 sm:mt-4 min-h-[40px]"
                 onClick={() => setShowScheduleForm(true)}
               >
                 Buat Jadwal Perawatan
-              </Button>
+              </ButtonMobile>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Maintenance Tabs */}
+      {/* Maintenance Tabs - Enhanced responsive layout */}
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue="history" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="history">Riwayat Perawatan</TabsTrigger>
-              <TabsTrigger value="schedule">Jadwal Mendatang</TabsTrigger>
-              <TabsTrigger value="costs">Laporan Biaya</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Riwayat Perawatan</span>
+                <span className="sm:hidden">Riwayat</span>
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Jadwal Mendatang</span>
+                <span className="sm:hidden">Jadwal</span>
+              </TabsTrigger>
+              <TabsTrigger value="costs" className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Laporan Biaya</span>
+                <span className="sm:hidden">Biaya</span>
+              </TabsTrigger>
             </TabsList>
             
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <TabsContent value="history" className="mt-0">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Riwayat Perawatan & Perbaikan</h3>
+                  <h3 className="text-base sm:text-lg font-semibold">Riwayat Perawatan & Perbaikan</h3>
                   {loading ? (
-                    <div className="flex items-center justify-center p-8">
+                    <div className="flex items-center justify-center p-6 sm:p-8">
                       <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                       <span className="ml-2 text-blue-600">Memuat data...</span>
                     </div>
                   ) : completedMaintenance.length > 0 ? (
-                    completedMaintenance.map((history) => (
-                      <div key={history.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-4 flex-1">
-                            <Wrench className="h-6 w-6 text-blue-600 mt-1" />
-                            <div>
-                              <h4 className="font-semibold">{history.jenisPerawatan}</h4>
-                              <p className="text-sm text-gray-600 mb-2">{history.deskripsi}</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
-                                <div><span className="font-medium">Kendaraan:</span> {history.platNomor}</div>
-                                <div><span className="font-medium">Tanggal:</span> {new Date(history.tanggal).toLocaleDateString('id-ID')}</div>
-                                <div><span className="font-medium">Bengkel:</span> {history.bengkel || 'Tidak diketahui'}</div>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
-                                <div>
-                                  <span className="font-medium">Biaya Jasa Mekanik:</span> Rp {(() => {
-                                    const sparePartsCost = (history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
-                                    const laborCost = (history.biaya || 0) - sparePartsCost;
-                                    return Math.max(0, laborCost).toLocaleString('id-ID');
-                                  })()}
+                    isMobile ? (
+                      <MobileTable>
+                        {completedMaintenance.map((history) => {
+                          const sparePartsCost = (history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
+                          const laborCost = Math.max(0, (history.biaya || 0) - sparePartsCost);
+                          
+                          return (
+                            <MobileTableItem
+                              key={history.id}
+                              title={history.jenisPerawatan}
+                              subtitle={`${history.platNomor} • ${new Date(history.tanggal).toLocaleDateString('id-ID')}`}
+                              status={
+                                <div className="text-right">
+                                  <div className="text-lg font-semibold text-blue-600">
+                                    Rp {(history.biaya || 0).toLocaleString('id-ID')}
+                                  </div>
+                                  <Badge className="bg-green-100 text-green-800 mt-1">
+                                    {history.status}
+                                  </Badge>
                                 </div>
-                                <div>
-                                  <span className="font-medium">Biaya Suku Cadang:</span> Rp {(history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0).toLocaleString('id-ID')}
+                              }
+                              actions={
+                                <div className="flex gap-2">
+                                  <ButtonMobile 
+                                    variant="outline" 
+                                    size="touchCompact"
+                                    onClick={() => handleEditRecord(history.id)}
+                                    className="flex-1"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </ButtonMobile>
+                                  <ButtonMobile 
+                                    variant="outline" 
+                                    size="touchCompact"
+                                    onClick={() => handleDeleteRecord(history.id)}
+                                    className="px-3"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </ButtonMobile>
                                 </div>
-                              </div>
-                              {history.spareParts && history.spareParts.length > 0 && (
-                                <div className="mt-2">
-                                  <span className="font-medium text-sm text-gray-600">Suku Cadang:</span>
+                              }
+                            >
+                              <div className="space-y-2">
+                                <p className="text-sm text-gray-600">{history.deskripsi}</p>
+                                <div className="space-y-1">
                                   <div className="text-sm text-gray-600">
-                                    {history.spareParts.map((part, index) => (
-                                      <span key={index}>
-                                        {part.nama} ({part.jumlah}x)
-                                        {index < history.spareParts.length - 1 ? ', ' : ''}
-                                      </span>
-                                    ))}
+                                    <span className="font-medium">Bengkel:</span> {history.bengkel || 'Tidak diketahui'}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    <span className="font-medium">Biaya Jasa:</span> Rp {laborCost.toLocaleString('id-ID')}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    <span className="font-medium">Biaya Suku Cadang:</span> Rp {sparePartsCost.toLocaleString('id-ID')}
+                                  </div>
+                                  {history.spareParts && history.spareParts.length > 0 && (
+                                    <div className="text-sm text-gray-600">
+                                      <span className="font-medium">Suku Cadang:</span> {' '}
+                                      {history.spareParts.map((part, index) => (
+                                        <span key={index}>
+                                          {part.nama} ({part.jumlah}x)
+                                          {index < history.spareParts.length - 1 ? ', ' : ''}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </MobileTableItem>
+                          );
+                        })}
+                      </MobileTable>
+                    ) : (
+                      completedMaintenance.map((history) => (
+                        <div key={history.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-4 flex-1">
+                              <Wrench className="h-6 w-6 text-blue-600 mt-1" />
+                              <div>
+                                <h4 className="font-semibold">{history.jenisPerawatan}</h4>
+                                <p className="text-sm text-gray-600 mb-2">{history.deskripsi}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
+                                  <div><span className="font-medium">Kendaraan:</span> {history.platNomor}</div>
+                                  <div><span className="font-medium">Tanggal:</span> {new Date(history.tanggal).toLocaleDateString('id-ID')}</div>
+                                  <div><span className="font-medium">Bengkel:</span> {history.bengkel || 'Tidak diketahui'}</div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
+                                  <div>
+                                    <span className="font-medium">Biaya Jasa Mekanik:</span> Rp {(() => {
+                                      const sparePartsCost = (history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0);
+                                      const laborCost = (history.biaya || 0) - sparePartsCost;
+                                      return Math.max(0, laborCost).toLocaleString('id-ID');
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Biaya Suku Cadang:</span> Rp {(history.spareParts || []).reduce((sum, part) => sum + (part.jumlah * part.harga), 0).toLocaleString('id-ID')}
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-semibold text-blue-600">
-                              Rp {(history.biaya || 0).toLocaleString('id-ID')}
-                            </div>
-                            <Badge className="bg-green-100 text-green-800">
-                              {history.status}
-                            </Badge>
-                            <div className="mt-2 flex gap-1">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleEditRecord(history.id)}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleDeleteRecord(history.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Wrench className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                      <p>Belum ada riwayat perawatan</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => setShowRepairForm(true)}
-                      >
-                        Catat Perbaikan Pertama
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="schedule" className="mt-0">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Jadwal Perawatan Mendatang</h3>
-                  {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
-                      <span className="ml-2 text-orange-600">Memuat data...</span>
-                    </div>
-                  ) : upcomingMaintenance.length > 0 ? (
-                    upcomingMaintenance.map((maintenance) => {
-                      const daysRemaining = maintenance.nextServiceDate 
-                        ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-                        : 0;
-                      
-                      return (
-                        <div key={maintenance.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <Calendar className="h-6 w-6 text-orange-600" />
-                              <div>
-                                <h4 className="font-semibold">{maintenance.jenisPerawatan}</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
-                                  <div><span className="font-medium">Kendaraan:</span> {maintenance.platNomor}</div>
-                                  <div><span className="font-medium">Tanggal:</span> {maintenance.nextServiceDate ? new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID') : 'Belum ditentukan'}</div>
-                                  <div><span className="font-medium">KM Saat Ini:</span> {(maintenance.kilometer || 0).toLocaleString('id-ID')}</div>
-                                  <div><span className="font-medium">Target KM:</span> {maintenance.nextServiceKm ? (maintenance.nextServiceKm || 0).toLocaleString('id-ID') : 'Belum ditentukan'}</div>
-                                </div>
-                                {maintenance.catatan && (
-                                  <div className="text-sm text-gray-600 mt-1">
-                                    <span className="font-medium">Catatan:</span> {maintenance.catatan}
+                                {history.spareParts && history.spareParts.length > 0 && (
+                                  <div className="mt-2">
+                                    <span className="font-medium text-sm text-gray-600">Suku Cadang:</span>
+                                    <div className="text-sm text-gray-600">
+                                      {history.spareParts.map((part, index) => (
+                                        <span key={index}>
+                                          {part.nama} ({part.jumlah}x)
+                                          {index < history.spareParts.length - 1 ? ', ' : ''}
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
                               </div>
                             </div>
                             <div className="text-right">
-                              <Badge 
-                                variant="outline" 
-                                className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
-                              >
-                                {daysRemaining > 0 ? `${daysRemaining} hari lagi` : 'Terlambat'}
+                              <div className="text-lg font-semibold text-blue-600">
+                                Rp {(history.biaya || 0).toLocaleString('id-ID')}
+                              </div>
+                              <Badge className="bg-green-100 text-green-800">
+                                {history.status}
                               </Badge>
                               <div className="mt-2 flex gap-1">
                                 <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleEditRecord(maintenance.id)}
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleEditRecord(history.id)}
                                 >
-                                  <Edit className="h-3 w-3 mr-1" />
-                                  Edit
+                                  <Edit className="h-3 w-3" />
                                 </Button>
                                 <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleDeleteRecord(maintenance.id)}
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleDeleteRecord(history.id)}
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
@@ -1383,69 +1467,212 @@ const MaintenanceManagement = () => {
                             </div>
                           </div>
                         </div>
-                      );
-                    })
+                      ))
+                    )
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                      <p>Belum ada jadwal perawatan</p>
-                      <Button 
+                    <div className="text-center py-6 sm:py-8 text-gray-500">
+                      <Wrench className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-gray-300 mb-3 sm:mb-4" />
+                      <p className="text-sm sm:text-base">Belum ada riwayat perawatan</p>
+                      <ButtonMobile 
                         variant="outline" 
                         size="sm" 
-                        className="mt-2"
+                        className="mt-3 sm:mt-4 min-h-[40px]"
+                        onClick={() => setShowRepairForm(true)}
+                      >
+                        Catat Perbaikan Pertama
+                      </ButtonMobile>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="schedule" className="mt-0">
+                <div className="space-y-4">
+                  <h3 className="text-base sm:text-lg font-semibold">Jadwal Perawatan Mendatang</h3>
+                  {loading ? (
+                    <div className="flex items-center justify-center p-6 sm:p-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                      <span className="ml-2 text-orange-600">Memuat data...</span>
+                    </div>
+                  ) : upcomingMaintenance.length > 0 ? (
+                    isMobile ? (
+                      <MobileTable>
+                        {upcomingMaintenance.map((maintenance) => {
+                          const daysRemaining = maintenance.nextServiceDate 
+                            ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                            : 0;
+                          
+                          return (
+                            <MobileTableItem
+                              key={maintenance.id}
+                              title={maintenance.jenisPerawatan}
+                              subtitle={`${maintenance.platNomor} • ${maintenance.nextServiceDate ? new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID') : 'Belum ditentukan'}`}
+                              status={
+                                <Badge 
+                                  variant="outline" 
+                                  className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
+                                >
+                                  {daysRemaining > 0 ? `${daysRemaining} hari` : 'Terlambat'}
+                                </Badge>
+                              }
+                              actions={
+                                <div className="flex gap-2">
+                                  <ButtonMobile 
+                                    size="touchCompact" 
+                                    variant="outline"
+                                    onClick={() => handleEditRecord(maintenance.id)}
+                                    className="flex-1"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </ButtonMobile>
+                                  <ButtonMobile 
+                                    size="touchCompact" 
+                                    variant="outline"
+                                    onClick={() => handleDeleteRecord(maintenance.id)}
+                                    className="px-3"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </ButtonMobile>
+                                </div>
+                              }
+                            >
+                              <div className="space-y-2">
+                                <div className="text-sm text-gray-600">
+                                  <span className="font-medium">KM Saat Ini:</span> {(maintenance.kilometer || 0).toLocaleString('id-ID')}
+                                </div>
+                                {maintenance.nextServiceKm && (
+                                  <div className="text-sm text-gray-600">
+                                    <span className="font-medium">Target KM:</span> {(maintenance.nextServiceKm || 0).toLocaleString('id-ID')}
+                                  </div>
+                                )}
+                                {maintenance.catatan && (
+                                  <div className="text-sm text-gray-600">
+                                    <span className="font-medium">Catatan:</span> {maintenance.catatan}
+                                  </div>
+                                )}
+                              </div>
+                            </MobileTableItem>
+                          );
+                        })}
+                      </MobileTable>
+                    ) : (
+                      upcomingMaintenance.map((maintenance) => {
+                        const daysRemaining = maintenance.nextServiceDate 
+                          ? Math.ceil((new Date(maintenance.nextServiceDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                          : 0;
+                        
+                        return (
+                          <div key={maintenance.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <Calendar className="h-6 w-6 text-orange-600" />
+                                <div>
+                                  <h4 className="font-semibold">{maintenance.jenisPerawatan}</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 mt-1">
+                                    <div><span className="font-medium">Kendaraan:</span> {maintenance.platNomor}</div>
+                                    <div><span className="font-medium">Tanggal:</span> {maintenance.nextServiceDate ? new Date(maintenance.nextServiceDate).toLocaleDateString('id-ID') : 'Belum ditentukan'}</div>
+                                    <div><span className="font-medium">KM Saat Ini:</span> {(maintenance.kilometer || 0).toLocaleString('id-ID')}</div>
+                                    <div><span className="font-medium">Target KM:</span> {maintenance.nextServiceKm ? (maintenance.nextServiceKm || 0).toLocaleString('id-ID') : 'Belum ditentukan'}</div>
+                                  </div>
+                                  {maintenance.catatan && (
+                                    <div className="text-sm text-gray-600 mt-1">
+                                      <span className="font-medium">Catatan:</span> {maintenance.catatan}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge 
+                                  variant="outline" 
+                                  className={daysRemaining <= 7 ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}
+                                >
+                                  {daysRemaining > 0 ? `${daysRemaining} hari lagi` : 'Terlambat'}
+                                </Badge>
+                                <div className="mt-2 flex gap-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditRecord(maintenance.id)}
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleDeleteRecord(maintenance.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )
+                  ) : (
+                    <div className="text-center py-6 sm:py-8 text-gray-500">
+                      <Calendar className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-gray-300 mb-3 sm:mb-4" />
+                      <p className="text-sm sm:text-base">Belum ada jadwal perawatan</p>
+                      <ButtonMobile 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3 sm:mt-4 min-h-[40px]"
                         onClick={() => setShowScheduleForm(true)}
                       >
                         Buat Jadwal Pertama
-                      </Button>
+                      </ButtonMobile>
                     </div>
                   )}
                 </div>
               </TabsContent>
 
               <TabsContent value="costs" className="mt-0">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Ringkasan Biaya Perawatan</h3>
+                <div className="space-y-4 sm:space-y-5">
+                  <h3 className="text-base sm:text-lg font-semibold">Ringkasan Biaya Perawatan</h3>
                   
-                  {/* Summary Cards */}
+                  {/* Summary Cards - Enhanced responsive grid */}
                   {loading ? (
-                    <div className="flex items-center justify-center p-8">
+                    <div className="flex items-center justify-center p-6 sm:p-8">
                       <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                       <span className="ml-2 text-purple-600">Memuat data...</span>
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         <Card>
-                          <CardContent className="pt-6">
+                          <CardContent className="pt-4 sm:pt-6">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-blue-600">
+                              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
                                 Rp {completedMaintenance.reduce((total, item) => total + (item.biaya || 0), 0).toLocaleString('id-ID')}
                               </div>
-                              <p className="text-sm text-gray-600">Total Biaya Perawatan</p>
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1">Total Biaya Perawatan</p>
                             </div>
                           </CardContent>
                         </Card>
                         <Card>
-                          <CardContent className="pt-6">
+                          <CardContent className="pt-4 sm:pt-6">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-green-600">
+                              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
                                 {completedMaintenance.length > 0 ? (
                                   `Rp ${Math.round(completedMaintenance.reduce((total, item) => total + (item.biaya || 0), 0) / completedMaintenance.length).toLocaleString('id-ID')}`
                                 ) : (
                                   'Rp 0'
                                 )}
                               </div>
-                              <p className="text-sm text-gray-600">Rata-rata per Perawatan</p>
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1">Rata-rata per Perawatan</p>
                             </div>
                           </CardContent>
                         </Card>
                         <Card>
-                          <CardContent className="pt-6">
+                          <CardContent className="pt-4 sm:pt-6">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-purple-600">
+                              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600">
                                 {completedMaintenance.length}
                               </div>
-                              <p className="text-sm text-gray-600">Total Perawatan</p>
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1">Total Perawatan</p>
                             </div>
                           </CardContent>
                         </Card>
