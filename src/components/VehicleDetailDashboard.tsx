@@ -13,7 +13,13 @@ import {
   BarChart3,
   Filter,
   Download,
-  PieChart
+  PieChart,
+  Upload,
+  Edit,
+  Trash2,
+  Eye,
+  X,
+  Plus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +27,17 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import VehicleHealthIndicator from './VehicleHealthIndicator';
 import ServiceLogbook from './ServiceLogbook';
 import { useToast } from '@/hooks/use-toast';
-import { localStorageService, MaintenanceRecord, OperationalCost, Document } from '@/services/LocalStorageService';
+import { localStorageService, MaintenanceRecord, OperationalCost, Document, VehiclePhoto } from '@/services/LocalStorageService';
+import PhotoUploadForm from './PhotoUploadForm';
+import PhotoViewerModal from './PhotoViewerModal';
+import PhotoEditModal from './PhotoEditModal';
 
 interface VehicleDetailDashboardProps {
   vehicle: {
@@ -51,6 +64,14 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
   const [activityTimeFilter, setActivityTimeFilter] = useState('30'); // days
   const [activityTypeFilter, setActivityTypeFilter] = useState('all');
 
+  // Photo management state
+  const [photos, setPhotos] = useState<VehiclePhoto[]>([]);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<VehiclePhoto | null>(null);
+  const [editingPhoto, setEditingPhoto] = useState<VehiclePhoto | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
   // Load real data from localStorage
   useEffect(() => {
     loadVehicleData();
@@ -65,12 +86,19 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
       const maintenance = localStorageService.getMaintenanceByVehicle(vehicleId);
       const costs = localStorageService.getCostsByVehicle(vehicleId);
       const docs = localStorageService.getDocumentsByVehicle(vehicleId);
+      const vehiclePhotos = localStorageService.getVehiclePhotos(vehicleId);
       
-      console.log('Loaded data:', { maintenance: maintenance.length, costs: costs.length, docs: docs.length }); // Debug log
+      console.log('Loaded data:', { 
+        maintenance: maintenance.length, 
+        costs: costs.length, 
+        docs: docs.length,
+        photos: vehiclePhotos.length 
+      }); // Debug log
       
       setMaintenanceRecords(maintenance);
       setOperationalCosts(costs);
       setDocuments(docs);
+      setPhotos(vehiclePhotos);
     } catch (error) {
       console.error('Error loading vehicle data:', error);
     } finally {
@@ -101,6 +129,135 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
         description: `Gunakan menu Perawatan untuk menjadwalkan servis ${vehicle.platNomor}`,
       });
     }
+  };
+
+  // Photo management functions
+  const handlePhotoUpload = async (file: File, category: string, title?: string, description?: string) => {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Error",
+        description: "File harus berupa gambar (JPG, PNG, dll.)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error", 
+        description: "Ukuran file terlalu besar. Maksimal 5MB.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const base64Data = await convertFileToBase64(file);
+      
+      const photoData: Omit<VehiclePhoto, 'id' | 'createdAt' | 'updatedAt'> = {
+        vehicleId: vehicle.id,
+        category: category as VehiclePhoto['category'],
+        fileName: file.name,
+        fileType: file.type,
+        fileData: base64Data,
+        title: title || `${category} - ${vehicle.platNomor}`,
+        description: description || '',
+        uploadDate: new Date().toISOString()
+      };
+
+      localStorageService.addVehiclePhoto(vehicle.id, photoData);
+      refreshVehicleData();
+      
+      toast({
+        title: "Berhasil",
+        description: "Foto berhasil diupload"
+      });
+      
+      setShowPhotoUpload(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mengupload foto",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoDelete = async (photoId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus foto ini?')) return;
+
+    try {
+      localStorageService.deleteVehiclePhoto(vehicle.id, photoId);
+      refreshVehicleData();
+      
+      toast({
+        title: "Berhasil",
+        description: "Foto berhasil dihapus"
+      });
+      
+      setShowPhotoViewer(false);
+      setSelectedPhoto(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal menghapus foto",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePhotoEdit = (photo: VehiclePhoto, newTitle: string, newDescription: string) => {
+    try {
+      localStorageService.updateVehiclePhoto(vehicle.id, photo.id, {
+        title: newTitle,
+        description: newDescription
+      });
+      refreshVehicleData();
+      
+      toast({
+        title: "Berhasil",
+        description: "Info foto berhasil diperbarui"
+      });
+      
+      setEditingPhoto(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal memperbarui foto",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Helper function to convert file to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Get category display name and icon
+  const getCategoryInfo = (category: string) => {
+    const categoryMap = {
+      front: { name: 'Foto Depan', icon: '🚗', color: 'bg-blue-100 text-blue-800' },
+      side: { name: 'Foto Samping', icon: '↔️', color: 'bg-green-100 text-green-800' },
+      rear: { name: 'Foto Belakang', icon: '🔄', color: 'bg-yellow-100 text-yellow-800' },
+      interior: { name: 'Interior', icon: '🪑', color: 'bg-purple-100 text-purple-800' },
+      document: { name: 'Dokumen', icon: '📄', color: 'bg-indigo-100 text-indigo-800' },
+      damage: { name: 'Kerusakan', icon: '⚠️', color: 'bg-red-100 text-red-800' },
+      other: { name: 'Lainnya', icon: '📷', color: 'bg-gray-100 text-gray-800' }
+    };
+    return categoryMap[category as keyof typeof categoryMap] || categoryMap.other;
   };
 
   // Calculate real vehicle details from actual data
@@ -656,42 +813,171 @@ const VehicleDetailDashboard = ({ vehicle, onNavigate }: VehicleDetailDashboardP
               </TabsContent>
 
               <TabsContent value="photos" className="mt-0">
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  {/* Header with Upload Button */}
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Foto Kendaraan</h3>
-                    <Button variant="outline" size="sm">
-                      <Camera className="h-4 w-4 mr-2" />
-                      Upload Foto
-                    </Button>
+                    <div>
+                      <h3 className="text-lg font-semibold">Foto Kendaraan</h3>
+                      <p className="text-sm text-gray-600">Kelola galeri foto untuk {vehicle.platNomor}</p>
+                    </div>
+                    <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Camera className="h-4 w-4 mr-2" />
+                          Upload Foto
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Upload Foto Kendaraan</DialogTitle>
+                        </DialogHeader>
+                        <PhotoUploadForm
+                          onUpload={handlePhotoUpload}
+                          uploading={uploadingPhoto}
+                          onCancel={() => setShowPhotoUpload(false)}
+                        />
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {/* Placeholder for photos - will be implemented later */}
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Camera className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Foto Depan</p>
-                      </div>
+
+                  {/* Photo Statistics */}
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      {(['front', 'side', 'rear', 'interior'] as const).map(category => {
+                        const categoryPhotos = photos.filter(p => p.category === category);
+                        const categoryInfo = getCategoryInfo(category);
+                        return (
+                          <Card key={category}>
+                            <CardContent className="pt-4 pb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-gray-600">{categoryInfo.name}</p>
+                                  <p className="text-lg font-bold">{categoryPhotos.length}</p>
+                                </div>
+                                <span className="text-lg">{categoryInfo.icon}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Camera className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Foto Samping</p>
-                      </div>
+                  )}
+
+                  {/* Photo Grid */}
+                  {photos.length === 0 ? (
+                    <Card>
+                      <CardContent className="pt-8 pb-8">
+                        <div className="text-center text-gray-500">
+                          <Camera className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                          <h4 className="text-lg font-medium mb-2">Belum Ada Foto</h4>
+                          <p className="text-sm mb-4">Upload foto pertama untuk kendaraan {vehicle.platNomor}</p>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowPhotoUpload(true)}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Upload Foto Pertama
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {photos.map((photo) => {
+                        const categoryInfo = getCategoryInfo(photo.category);
+                        return (
+                          <Card key={photo.id} className="overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow">
+                            <CardContent className="p-0">
+                              <div className="relative">
+                                <img
+                                  src={photo.fileData}
+                                  alt={photo.title || photo.fileName}
+                                  className="w-full h-48 object-cover"
+                                  onClick={() => {
+                                    setSelectedPhoto(photo);
+                                    setShowPhotoViewer(true);
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedPhoto(photo);
+                                        setShowPhotoViewer(true);
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingPhoto(photo);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePhotoDelete(photo.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="absolute top-2 left-2">
+                                  <Badge className={categoryInfo.color}>
+                                    {categoryInfo.name}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <h4 className="font-medium text-sm truncate">{photo.title || photo.fileName}</h4>
+                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                  {photo.description || 'Tidak ada deskripsi'}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {new Date(photo.uploadDate).toLocaleDateString('id-ID')}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Camera className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Interior</p>
-                      </div>
-                    </div>
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Camera className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Dokumen</p>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
+
+                {/* Photo Viewer Modal */}
+                <PhotoViewerModal
+                  photo={selectedPhoto}
+                  isOpen={showPhotoViewer}
+                  onClose={() => {
+                    setShowPhotoViewer(false);
+                    setSelectedPhoto(null);
+                  }}
+                  onEdit={(photo) => {
+                    setEditingPhoto(photo);
+                    setShowPhotoViewer(false);
+                  }}
+                  onDelete={handlePhotoDelete}
+                />
+
+                {/* Photo Edit Modal */}
+                <PhotoEditModal
+                  photo={editingPhoto}
+                  isOpen={!!editingPhoto}
+                  onClose={() => setEditingPhoto(null)}
+                  onSave={handlePhotoEdit}
+                />
               </TabsContent>
 
               <TabsContent value="analytics" className="mt-0">

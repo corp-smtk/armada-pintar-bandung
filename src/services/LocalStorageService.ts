@@ -59,6 +59,20 @@ export interface DeliveryLog {
 }
 
 // New interfaces for additional modules
+export interface VehiclePhoto {
+  id: string;
+  vehicleId: string;
+  category: 'front' | 'side' | 'rear' | 'interior' | 'document' | 'damage' | 'other';
+  fileName: string;
+  fileType: string;
+  fileData: string; // base64 encoded image
+  title?: string;
+  description?: string;
+  uploadDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Vehicle {
   id: string;
   platNomor: string;
@@ -78,6 +92,7 @@ export interface Vehicle {
   statusDokumen: string;
   servisBerikutnya?: string;
   catatan?: string;
+  photos?: VehiclePhoto[]; // Add photos field
   createdAt: string;
   updatedAt: string;
 }
@@ -203,7 +218,14 @@ class LocalStorageService {
 
   getGeneralSettings(): GeneralSettings {
     const saved = localStorage.getItem(this.getPrefix() + this.KEYS.GENERAL_SETTINGS);
-    return saved ? JSON.parse(saved) : undefined;
+    return saved ? JSON.parse(saved) : {
+      timezone: 'Asia/Jakarta',
+      dailyCheckTime: '09:00',
+      maxRetryAttempts: 3,
+      retryInterval: 30,
+      enableAutoRetry: true,
+      enableDeliveryReports: true
+    };
   }
 
   // Reminder Configs
@@ -303,6 +325,66 @@ class LocalStorageService {
   getVehicleById(id: string): Vehicle | undefined {
     const vehicles = this.getVehicles();
     return vehicles.find(v => v.id === id);
+  }
+
+  // Vehicle Photo Management
+  addVehiclePhoto(vehicleId: string, photo: Omit<VehiclePhoto, 'id' | 'createdAt' | 'updatedAt'>): VehiclePhoto {
+    const vehicle = this.getVehicleById(vehicleId);
+    if (!vehicle) {
+      throw new Error('Vehicle not found');
+    }
+
+    const newPhoto: VehiclePhoto = {
+      ...photo,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const photos = vehicle.photos || [];
+    photos.push(newPhoto);
+    
+    this.updateVehicle(vehicleId, { photos });
+    return newPhoto;
+  }
+
+  getVehiclePhotos(vehicleId: string): VehiclePhoto[] {
+    const vehicle = this.getVehicleById(vehicleId);
+    return vehicle?.photos || [];
+  }
+
+  updateVehiclePhoto(vehicleId: string, photoId: string, updates: Partial<VehiclePhoto>): void {
+    const vehicle = this.getVehicleById(vehicleId);
+    if (!vehicle || !vehicle.photos) {
+      throw new Error('Vehicle or photos not found');
+    }
+
+    const photoIndex = vehicle.photos.findIndex(p => p.id === photoId);
+    if (photoIndex === -1) {
+      throw new Error('Photo not found');
+    }
+
+    vehicle.photos[photoIndex] = {
+      ...vehicle.photos[photoIndex],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.updateVehicle(vehicleId, { photos: vehicle.photos });
+  }
+
+  deleteVehiclePhoto(vehicleId: string, photoId: string): void {
+    const vehicle = this.getVehicleById(vehicleId);
+    if (!vehicle || !vehicle.photos) {
+      throw new Error('Vehicle or photos not found');
+    }
+
+    const updatedPhotos = vehicle.photos.filter(p => p.id !== photoId);
+    this.updateVehicle(vehicleId, { photos: updatedPhotos });
+  }
+
+  deleteAllVehiclePhotos(vehicleId: string): void {
+    this.updateVehicle(vehicleId, { photos: [] });
   }
 
   // Document Management
@@ -468,7 +550,11 @@ class LocalStorageService {
   }
   getWhatsAppSettings(): WhatsAppSettings {
     const saved = localStorage.getItem(this.getPrefix() + this.KEYS.WHATSAPP_SETTINGS);
-    return saved ? JSON.parse(saved) : undefined;
+    return saved ? JSON.parse(saved) : {
+      enabled: false,
+      api_key: '',
+      sender: ''
+    };
   }
 
   // Utility methods

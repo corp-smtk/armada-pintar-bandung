@@ -109,9 +109,22 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
         }
       }
       
+      const wasEditing = editingVehicle;
+      
       loadVehicles();
       setShowForm(false);
       setEditingVehicle(null);
+      
+      // If we were editing a vehicle, return to its detail view after data is loaded
+      if (wasEditing) {
+        setTimeout(() => {
+          const updatedVehicles = localStorageService.getVehicles();
+          const updatedVehicle = updatedVehicles.find(v => v.id === wasEditing.id);
+          if (updatedVehicle) {
+            setSelectedVehicle(updatedVehicle);
+          }
+        }, 100);
+      }
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
@@ -131,6 +144,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
   // Handle edit
   const handleEdit = useCallback((vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
+    setSelectedVehicle(null); // Clear selected vehicle to show form
     setShowForm(true);
   }, []);
 

@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { BarChart3, Truck, FileText, Wrench, DollarSign, Bell, Menu, X } from 'lucide-react';
+import { BarChart3, Truck, FileText, Wrench, DollarSign, Bell, Menu, X, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface NavigationProps {
   activeModule: string;
   setActiveModule: (module: string) => void;
   onLogout: () => void;
+  onResetData?: () => void;
+  showResetButton?: boolean;
 }
 
-const Navigation = ({ activeModule, setActiveModule, onLogout }: NavigationProps) => {
+const Navigation = ({ activeModule, setActiveModule, onLogout, onResetData, showResetButton }: NavigationProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigationItems = [
@@ -59,6 +61,19 @@ const Navigation = ({ activeModule, setActiveModule, onLogout }: NavigationProps
             })}
             {/* Separator */}
             <div className="h-6 w-px bg-gray-200 mx-2" />
+            {/* Reset Data Button */}
+            {showResetButton && onResetData && (
+              <Button 
+                onClick={onResetData} 
+                variant="outline" 
+                size="sm" 
+                className="ml-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                title="Reset ke Data Demo"
+              >
+                <RotateCcw className="h-3 w-3 xl:h-4 xl:w-4 mr-1" />
+                <span className="hidden xl:block">Reset</span>
+              </Button>
+            )}
             {/* Logout Button */}
             <Button onClick={onLogout} variant="outline" size="sm" className="ml-2">Logout</Button>
           </div>
@@ -107,6 +122,18 @@ const Navigation = ({ activeModule, setActiveModule, onLogout }: NavigationProps
           })}
           {/* Separator */}
           <div className="border-t border-gray-200 my-2" />
+          {/* Reset Data Button */}
+          {showResetButton && onResetData && (
+            <Button 
+              onClick={onResetData} 
+              variant="outline" 
+              size="sm" 
+              className="w-full mb-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset ke Data Demo
+            </Button>
+          )}
           {/* Logout Button */}
           <Button onClick={onLogout} variant="outline" size="sm" className="w-full">Logout</Button>
         </div>

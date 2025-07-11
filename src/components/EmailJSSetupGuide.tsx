@@ -43,13 +43,10 @@ const EmailJSSetupGuide = () => {
         .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
         .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
         .content { padding: 30px; }
-        .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
         .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .info-table td { padding: 8px; border-bottom: 1px solid #eee; }
         .info-table .label { font-weight: bold; color: #333; width: 30%; }
-        .urgency-high { color: #dc3545; font-weight: bold; }
-        .urgency-medium { color: #fd7e14; font-weight: bold; }
-        .urgency-low { color: #28a745; font-weight: bold; }
+        .urgency { color: #dc3545; font-weight: bold; }
         .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; }
     </style>
 </head>
@@ -61,17 +58,16 @@ const EmailJSSetupGuide = () => {
             <p>{{subject}}</p>
         </div>
         
-        <!-- Main Content -->
+        <!-- Main Content with HTML Message -->
         <div class="content">
             <p>Halo <strong>{{to_name}}</strong>,</p>
             
-            <!-- Alert Message -->
-            <div class="alert-box">
-                <h3 style="margin-top: 0; color: #856404;">⚠️ Pengingat Penting</h3>
-                <p style="margin-bottom: 0;">{{message}}</p>
+            <!-- Use html_message for formatted content -->
+            <div>
+                {{{html_message}}}
             </div>
             
-            <!-- Reminder Details -->
+            <!-- Additional Info Table -->
             <h3>📋 Detail Informasi:</h3>
             <table class="info-table">
                 <tr>
@@ -84,39 +80,21 @@ const EmailJSSetupGuide = () => {
                 </tr>
                 <tr>
                     <td class="label">Sisa Waktu:</td>
-                    <td>
-                        <strong>{{days_remaining}} hari</strong>
-                        <span class="urgency-{{urgency_level}}">
-                            ({{#if (eq urgency_level 'HIGH')}}URGENT{{/if}}{{#if (eq urgency_level 'MEDIUM')}}SEGERA{{/if}}{{#if (eq urgency_level 'LOW')}}NORMAL{{/if}})
-                        </span>
-                    </td>
+                    <td><strong>{{days_remaining}} hari</strong> <span class="urgency">{{urgency_text}}</span></td>
                 </tr>
                 <tr>
                     <td class="label">Jenis Reminder:</td>
                     <td>{{reminder_type}}</td>
                 </tr>
-                {{#if document_type}}
                 <tr>
                     <td class="label">Dokumen:</td>
                     <td>{{document_type}}</td>
                 </tr>
-                {{/if}}
                 <tr>
                     <td class="label">Tanggal Email:</td>
                     <td>{{current_date}}</td>
                 </tr>
             </table>
-            
-            <!-- Action Required -->
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                <h4 style="margin-top: 0; color: #0066cc;">🎯 Tindakan yang Diperlukan:</h4>
-                <ul style="margin-bottom: 0;">
-                    <li>Segera koordinasikan dengan tim terkait</li>
-                    <li>Pastikan dokumen dan persyaratan telah dipersiapkan</li>
-                    <li>Jadwalkan appointment jika diperlukan</li>
-                    <li>Update status di sistem setelah selesai</li>
-                </ul>
-            </div>
         </div>
         
         <!-- Footer -->
@@ -310,15 +288,42 @@ const EmailJSSetupGuide = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Gunakan template HTML yang telah kami optimalkan untuk sistem reminder fleet management.
+                  Gunakan template HTML yang telah kami optimalkan untuk sistem reminder fleet management. **PENTING:** Template ini sudah dikonfigurasi untuk menampilkan konten HTML dengan benar.
                 </AlertDescription>
               </Alert>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-800 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Penting untuk HTML Rendering & EmailJS Limitations
+                </h4>
+                <div className="text-sm text-yellow-700 mt-2 space-y-1">
+                  <p>• Template ini menggunakan <code>{`{{{html_message}}}`}</code> untuk konten HTML yang terformat</p>
+                  <p>• <strong>PENTING:</strong> EmailJS hanya mendukung substitusi variabel sederhana</p>
+                  <p>• <strong>JANGAN gunakan</strong> logic handlebars seperti:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li><code>{`{{#if condition}}`}</code> - Conditional blocks</li>
+                    <li><code>{`{{#if_eq var 'value'}}`}</code> - Equality checks</li>
+                    <li><code>{`{{#each items}}`}</code> - Loops</li>
+                  </ul>
+                  <p>• <strong>Gunakan HANYA</strong> substitusi variabel: <code>{`{{variable_name}}`}</code></p>
+                  <p>• Jika perlu conditional content, kirim sebagai parameter yang sudah diproses</p>
+                </div>
+              </div>
               
               <div className="space-y-4">
                 <h4 className="font-semibold">Langkah-langkah:</h4>
                 <ol className="list-decimal list-inside space-y-2 text-sm">
                   <li>Di dashboard EmailJS, pilih "Email Templates" → "Create New Template"</li>
                   <li>Beri nama template: "Fleet Management Reminder"</li>
+                  <li><strong>PENTING:</strong> Di bagian "Settings" template:
+                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                      <li>Set <strong>"To Email"</strong> field ke: <code>{`{{to_email}}`}</code></li>
+                      <li>Set <strong>"From Name"</strong> ke: <code>{`{{from_name}}`}</code></li>
+                      <li>Set <strong>"Subject"</strong> ke: <code>{`{{subject}}`}</code></li>
+                      <li>Disable "Auto-Reply" jika tidak diperlukan</li>
+                    </ul>
+                  </li>
                   <li>Copy template HTML di bawah ini dan paste ke EmailJS</li>
                   <li>Simpan template dan catat Template ID</li>
                 </ol>

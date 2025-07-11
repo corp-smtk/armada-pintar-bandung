@@ -25,6 +25,39 @@ const ReminderLogs = () => {
   const handleRetry = async (log: any) => {
     const reminder = reminderService.getReminderConfigs().find(r => r.id === log.reminderId);
     if (reminder) {
+      // Validate that reminder has valid recipients before retry
+      const validRecipients = reminder.recipients.filter((email: string) => 
+        email && 
+        email.trim().length > 0 && 
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      );
+      
+      if (validRecipients.length === 0) {
+        console.error(`[RETRY_DEBUG] ❌ Cannot retry: Reminder "${reminder.title}" has no valid recipients`);
+        console.error(`[RETRY_DEBUG] Current recipients:`, reminder.recipients);
+        
+        // Show user a helpful error message
+        if (reminderService.toast) {
+          reminderService.toast({
+            title: "Cannot Retry",
+            description: `Reminder "${reminder.title}" has no valid email recipients. Please edit the reminder to add valid email addresses.`,
+            variant: "destructive"
+          });
+        }
+        return;
+      }
+      
+      // If some recipients are invalid, clean them up before retry
+      if (validRecipients.length !== reminder.recipients.length) {
+        console.log(`[RETRY_DEBUG] Cleaning invalid recipients before retry for: ${reminder.title}`);
+        console.log(`[RETRY_DEBUG] Before:`, reminder.recipients);
+        console.log(`[RETRY_DEBUG] After:`, validRecipients);
+        
+        reminderService.updateReminderConfig(reminder.id, {
+          recipients: validRecipients
+        });
+      }
+      
       await reminderService.sendReminder(reminder);
       setDeliveryLogs(reminderService.getDeliveryLogs());
     }

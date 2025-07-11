@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, MessageCircle, TestTube, Eye, EyeOff, Download, Upload, BookOpen, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Mail, MessageCircle, MessageSquare, TestTube, Eye, EyeOff, Download, Upload, BookOpen, CheckCircle, AlertCircle, HelpCircle, Shield, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { localStorageService, EmailSettings, TelegramSettings, GeneralSettings } from '@/services/LocalStorageService';
+import { systemConfigService } from '@/services/SystemConfigService';
 import emailjs from '@emailjs/browser';
 import EmailJSSetupGuide from './EmailJSSetupGuide';
+import SystemConfigPanel from './SystemConfigPanel';
 import { reminderService } from './ReminderService';
 
 interface ReminderSettingsProps {
@@ -25,6 +27,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
   const [testingEmail, setTestingEmail] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showSystemConfig, setShowSystemConfig] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [useSimpleTemplate, setUseSimpleTemplate] = useState(false);
   const [useUltraSimple, setUseUltraSimple] = useState(false);
@@ -43,15 +46,23 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>(() => 
     localStorageService.getTelegramSettings()
   );
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(() => 
-    localStorageService.getGeneralSettings()
-  );
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(() => {
+    const settings = localStorageService.getGeneralSettings();
+    return settings || {
+      timezone: 'Asia/Jakarta',
+      dailyCheckTime: '09:00',
+      maxRetryAttempts: 3,
+      retryInterval: 30,
+      enableAutoRetry: true,
+      enableDeliveryReports: true
+    };
+  });
 
   // WhatsApp settings state
   const initialWhatsApp = localStorageService.getWhatsAppSettings();
-  const [waEnabled, setWaEnabled] = useState(initialWhatsApp.enabled);
-  const [waApiKey, setWaApiKey] = useState(initialWhatsApp.api_key);
-  const [waSender, setWaSender] = useState(initialWhatsApp.sender);
+  const [waEnabled, setWaEnabled] = useState(initialWhatsApp?.enabled || false);
+  const [waApiKey, setWaApiKey] = useState(initialWhatsApp?.api_key || '');
+  const [waSender, setWaSender] = useState(initialWhatsApp?.sender || '');
   const [waSaved, setWaSaved] = useState(false);
 
   // Validation functions
@@ -149,21 +160,54 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       templateParams = {
         to_name: 'Test User',
         to_email: testEmail,
-        from_name: emailSettings.fromName || 'Fleet Management System',
+        from_name: emailSettings.fromName || 'GasTrax System - Smartek Sistem Indonesia',
         message: 'Ini adalah test email untuk memastikan konfigurasi EmailJS berfungsi dengan baik. Jika Anda menerima email ini, maka konfigurasi sudah benar.'
       };
     } else {
-      // Full template - all variables
+      // Full template - all variables (matching our simplified EmailJS template)
       templateParams = {
+        // Basic template variables
+        subject: 'Test Reminder - Fleet Management',
         to_name: 'Test User',
         to_email: testEmail,
-        from_name: emailSettings.fromName || 'Fleet Management System',
+        reply_to: testEmail, // EmailJS built-in field for reply address
+        from_name: emailSettings.fromName || 'GasTrax System - Smartek Sistem Indonesia',
+        from_email: emailSettings.fromEmail || 'system@fleet.com',
+        
+        // Enhanced message content
         message: 'Ini adalah test email untuk memastikan konfigurasi EmailJS berfungsi dengan baik. Jika Anda menerima email ini, maka konfigurasi sudah benar.',
+        html_message: '<p>Ini adalah <strong>test email</strong> untuk memastikan konfigurasi EmailJS berfungsi dengan baik.</p><p>Jika Anda menerima email ini, maka konfigurasi sudah <em>benar</em>.</p>',
+        plain_message: 'Ini adalah test email untuk memastikan konfigurasi EmailJS berfungsi dengan baik. Jika Anda menerima email ini, maka konfigurasi sudah benar.',
+        
+        // Detailed reminder information
+        vehicle_info: 'B 1234 TEST',
+        due_date: new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        }),
+        days_remaining: '7',
+        urgency_text: '(NORMAL)', // Simplified urgency without conditional logic
+        reminder_type: 'Test Reminder',
+        document_type: 'Test Document',
+        
+        // Additional context
+        company_name: emailSettings.fromName || 'GasTrax System - Smartek Sistem Indonesia',
+        current_date: new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        }),
+        
+        // System info
+        reminder_id: 'TEST_' + Date.now(),
+        
+        // Legacy compatibility fields (for backward compatibility)
         vehicle: 'B 1234 TEST',
         days: '7',
         date: new Date().toLocaleDateString('id-ID'),
         title: 'Test Reminder',
-        company: 'Fleet Management System'
+        company: 'GasTrax System - Smartek Sistem Indonesia'
       };
     }
 
@@ -194,7 +238,31 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       let errorMessage = 'Unknown error occurred';
       
       if (error.status === 422) {
-        errorMessage = `Template Error (422): ${error.text || 'Template parameters mismatch. Check your EmailJS template variables.'}`;
+        if (error.text?.includes('recipients address is empty')) {
+          errorMessage = `Template Configuration Error (422): The EmailJS template is missing recipient configuration.
+          
+🔧 Quick Fix:
+1. Go to your EmailJS dashboard → Email Templates
+2. Edit your template "${emailSettings.templateId}"
+3. In template settings, set "To Email" field to: {{to_email}}
+4. Make sure "Auto-Reply" is disabled or configured properly
+5. Save the template and try again
+
+This error means EmailJS can't find where to send the email. The template needs to know which parameter contains the recipient email address.`;
+        } else if (error.text?.includes('corrupted') || error.text?.includes('dynamic variables')) {
+          errorMessage = `Template Variables Error (422): One or more template variables are corrupted or mismatched.
+
+🔧 Quick Fix:
+1. EmailJS only supports SIMPLE variable substitution like {{variable_name}}
+2. REMOVE any complex logic like {{#if condition}} or {{#if_eq var 'value'}}
+3. Use our simplified template from the setup guide
+4. Make sure all variables in template match what we're sending
+5. Check that {{to_email}}, {{subject}}, {{html_message}} are properly configured
+
+Common issue: Template contains handlebars logic that EmailJS doesn't support.`;
+        } else {
+          errorMessage = `Template Error (422): ${error.text || 'Template parameters mismatch. Check your EmailJS template variables.'}`;
+        }
       } else if (error.status === 400) {
         errorMessage = `Configuration Error (400): ${error.text || 'Invalid Service ID, Template ID, or Public Key.'}`;
       } else if (error.status === 401) {
@@ -234,7 +302,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
         },
         body: JSON.stringify({
           chat_id: telegramSettings.chatId,
-          text: '🤖 Test message dari Fleet Management System!\n\nKonfigurasi Telegram bot berhasil!',
+          text: '🤖 Test message dari GasTrax System - Smartek Sistem Indonesia!\n\nKonfigurasi Telegram bot berhasil!',
           parse_mode: 'Markdown'
         })
       });
@@ -277,7 +345,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       const targetNumber = waTestRecipient.trim() || waSender;
       const result = await reminderService.sendWhatsApp(
         targetNumber,
-        'Ini adalah pesan tes WhatsApp dari Armada Pintar.',
+        'Ini adalah pesan tes WhatsApp dari GasTrax System - Smartek Sistem Indonesia.',
         'test-wa-settings'
       );
       if (result.success) {
@@ -383,8 +451,35 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
         </div>
       </div>
 
+      {/* System Configuration Info */}
+      <Alert className="border-blue-200 bg-blue-50">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          <strong>Good News!</strong> This system comes pre-configured with working EmailJS and WhatsApp credentials. 
+          Reminders work immediately without any setup required. You can optionally configure your own credentials 
+          in the settings below if you prefer to use your own accounts.
+        </AlertDescription>
+      </Alert>
+
       {/* Connection Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield className="h-8 w-8 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold">System Config</h3>
+                  <p className="text-sm text-gray-600">Auto Configuration</p>
+                </div>
+              </div>
+              <Badge className="bg-blue-100 text-blue-800">
+                Active
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -392,11 +487,23 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                 <Mail className="h-8 w-8 text-blue-600" />
                 <div>
                   <h3 className="font-semibold">Email Service</h3>
-                  <p className="text-sm text-gray-600">EmailJS Configuration</p>
+                  <p className="text-sm text-gray-600">
+                    {(() => {
+                      const configStatus = systemConfigService.getConfigStatus();
+                      return configStatus.email === 'system' ? 'System Configured' : 
+                             configStatus.email === 'user' ? 'User Configured' : 'EmailJS Configuration';
+                    })()}
+                  </p>
                 </div>
               </div>
-              <Badge className={emailSettings.enabled && emailSettings.serviceId ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                {emailSettings.enabled && emailSettings.serviceId ? 'Configured' : 'Not Configured'}
+              <Badge className={(() => {
+                const configStatus = systemConfigService.getConfigStatus();
+                return configStatus.email !== 'none' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+              })()}>
+                {(() => {
+                  const configStatus = systemConfigService.getConfigStatus();
+                  return configStatus.email !== 'none' ? 'Ready' : 'Not Configured';
+                })()}
               </Badge>
             </div>
           </CardContent>
@@ -406,14 +513,55 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <MessageCircle className="h-8 w-8 text-green-600" />
+                <MessageSquare className="h-8 w-8 text-green-500" />
                 <div>
-                  <h3 className="font-semibold">Telegram Bot</h3>
-                  <p className="text-sm text-gray-600">Bot Integration</p>
+                  <h3 className="font-semibold">WhatsApp Service</h3>
+                  <p className="text-sm text-gray-600">
+                    {(() => {
+                      const configStatus = systemConfigService.getConfigStatus();
+                      return configStatus.whatsapp === 'system' ? 'System Configured' : 
+                             configStatus.whatsapp === 'user' ? 'User Configured' : 'Zapin API Integration';
+                    })()}
+                  </p>
                 </div>
               </div>
-              <Badge className={telegramSettings.enabled && telegramSettings.botToken ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                {telegramSettings.enabled && telegramSettings.botToken ? 'Configured' : 'Not Configured'}
+              <Badge className={(() => {
+                const configStatus = systemConfigService.getConfigStatus();
+                return configStatus.whatsapp !== 'none' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+              })()}>
+                {(() => {
+                  const configStatus = systemConfigService.getConfigStatus();
+                  return configStatus.whatsapp !== 'none' ? 'Ready' : 'Not Configured';
+                })()}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MessageCircle className="h-8 w-8 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold">Telegram Bot</h3>
+                  <p className="text-sm text-gray-600">
+                    {(() => {
+                      const configStatus = systemConfigService.getConfigStatus();
+                      return configStatus.telegram === 'system' ? 'System Configured' : 
+                             configStatus.telegram === 'user' ? 'User Configured' : 'Bot Integration';
+                    })()}
+                  </p>
+                </div>
+              </div>
+              <Badge className={(() => {
+                const configStatus = systemConfigService.getConfigStatus();
+                return configStatus.telegram !== 'none' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+              })()}>
+                {(() => {
+                  const configStatus = systemConfigService.getConfigStatus();
+                  return configStatus.telegram !== 'none' ? 'Ready' : 'Not Configured';
+                })()}
               </Badge>
             </div>
           </CardContent>
@@ -424,7 +572,11 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="system-config" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                System Config
+              </TabsTrigger>
               <TabsTrigger value="email">Email Settings</TabsTrigger>
               <TabsTrigger value="setup-guide" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -436,6 +588,10 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
             </TabsList>
             
             <div className="p-6">
+              <TabsContent value="system-config" className="mt-0">
+                <SystemConfigPanel />
+              </TabsContent>
+              
               <TabsContent value="email" className="mt-0 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -577,7 +733,7 @@ const ReminderSettings = ({ onBack }: ReminderSettingsProps) => {
                       id="fromName"
                       value={emailSettings.fromName}
                       onChange={(e) => setEmailSettings({ ...emailSettings, fromName: e.target.value })}
-                      placeholder="Fleet Management System"
+                      placeholder="GasTrax System - Smartek Sistem Indonesia"
                     />
                   </div>
                 </div>

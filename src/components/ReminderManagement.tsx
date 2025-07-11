@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Plus, Settings, Mail, MessageCircle, Calendar, AlertTriangle, AlertCircle, CheckCircle, Save, Users, FileText, Play } from 'lucide-react';
+import { Bell, Plus, Settings, Mail, MessageCircle, Calendar, AlertTriangle, AlertCircle, CheckCircle, Save, Users, FileText, Play, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useReminderService } from './ReminderService';
 import EmailTemplateManager from './EmailTemplateManager';
+import EmailTargetingManager from './EmailTargetingManager';
 import ReminderSettings from './ReminderSettings';
 import ReminderLogs from './ReminderLogs';
 
@@ -27,7 +28,10 @@ const ReminderManagement = () => {
   const [selectedEmailContacts, setSelectedEmailContacts] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [isRunningDailyCheck, setIsRunningDailyCheck] = useState(false);
+  const [isRunningCleanup, setIsRunningCleanup] = useState(false);
   const [emailQueue, setEmailQueue] = useState<any[]>([]);
+  const [whatsappQueue, setWhatsappQueue] = useState<any[]>([]);
+  const [telegramQueue, setTelegramQueue] = useState<any[]>([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState(false);
   const [expandedReminderId, setExpandedReminderId] = useState<string | null>(null);
   const [deliveryLogs, setDeliveryLogs] = useState<any[]>([]);
@@ -196,22 +200,51 @@ const ReminderManagement = () => {
     }
   };
 
-  // Fetch the email queue (reminders due to be sent by email today)
-  const fetchEmailQueue = async () => {
+  // Function to manually run cleanup of invalid reminders
+  const handleCleanupInvalidReminders = async () => {
+    setIsRunningCleanup(true);
+    try {
+      await reminderService.manualCleanupInvalidReminders();
+      // Refresh the reminders list
+      window.location.reload(); // Simple way to refresh the UI
+    } catch (error: any) {
+      toast({
+        title: "Cleanup Failed",
+        description: `Error cleaning up reminders: ${error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsRunningCleanup(false);
+    }
+  };
+
+  // Fetch queues for all channels (reminders due to be sent today)
+  const fetchAllQueues = async () => {
     setIsLoadingQueue(true);
     try {
       const dueReminders = await reminderService.checkDailyReminders();
+      
+      // Filter by channel and active status
       const emailReminders = dueReminders.filter(
         (r: any) => r.channels.includes('email') && r.status === 'active'
       );
+      const whatsappReminders = dueReminders.filter(
+        (r: any) => r.channels.includes('whatsapp') && r.status === 'active'
+      );
+      const telegramReminders = dueReminders.filter(
+        (r: any) => r.channels.includes('telegram') && r.status === 'active'
+      );
+      
       setEmailQueue(emailReminders);
+      setWhatsappQueue(whatsappReminders);
+      setTelegramQueue(telegramReminders);
     } finally {
       setIsLoadingQueue(false);
     }
   };
 
   useEffect(() => {
-    fetchEmailQueue();
+    fetchAllQueues();
     setDeliveryLogs(reminderService.getDeliveryLogs());
   }, []);
 
@@ -811,6 +844,15 @@ const ReminderManagement = () => {
             <Play className="h-4 w-4" />
             {isRunningDailyCheck ? 'Running...' : 'Run Daily Check'}
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleCleanupInvalidReminders}
+            disabled={isRunningCleanup}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            {isRunningCleanup ? 'Cleaning...' : 'Cleanup Invalid'}
+          </Button>
           <Button variant="outline" onClick={() => setShowSettings(true)} className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Pengaturan
@@ -855,7 +897,9 @@ const ReminderManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Kirim Hari Ini</p>
-                <p className="text-2xl font-bold text-orange-600">2</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {emailQueue.length + whatsappQueue.length + telegramQueue.length}
+                </p>
               </div>
               <Mail className="h-8 w-8 text-orange-600" />
             </div>
@@ -897,7 +941,7 @@ const ReminderManagement = () => {
                         variant="outline"
                         size="sm"
                         className="ml-auto"
-                        onClick={fetchEmailQueue}
+                        onClick={fetchAllQueues}
                         disabled={isLoadingQueue}
                       >
                         {isLoadingQueue ? 'Memuat...' : 'Refresh'}
@@ -934,6 +978,85 @@ const ReminderManagement = () => {
                   </CardContent>
                 </Card>
                 {/* End Email Queue Section */}
+                
+                {/* WhatsApp Queue Section */}
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageCircle className="h-5 w-5 text-green-600" />
+                      Queue Pengiriman WhatsApp Hari Ini
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {whatsappQueue.length === 0 ? (
+                      <div className="text-gray-500">Tidak ada reminder WhatsApp yang akan dikirim hari ini.</div>
+                    ) : (
+                      <table className="w-full text-sm border">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="p-2 text-left">Judul</th>
+                            <th className="p-2 text-left">Penerima</th>
+                            <th className="p-2 text-left">Jenis</th>
+                            <th className="p-2 text-left">Waktu Kirim</th>
+                            <th className="p-2 text-left">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {whatsappQueue.map(reminder => (
+                            <tr key={`wa-${reminder.id}`} className="border-t">
+                              <td className="p-2">{reminder.title}</td>
+                              <td className="p-2">{reminder.recipients.join(', ')}</td>
+                              <td className="p-2">{reminder.type}</td>
+                              <td className="p-2">09:00 AM</td>
+                              <td className="p-2">Queued</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </CardContent>
+                </Card>
+                {/* End WhatsApp Queue Section */}
+                
+                {/* Telegram Queue Section */}
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageCircle className="h-5 w-5 text-blue-500" />
+                      Queue Pengiriman Telegram Hari Ini
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {telegramQueue.length === 0 ? (
+                      <div className="text-gray-500">Tidak ada reminder Telegram yang akan dikirim hari ini.</div>
+                    ) : (
+                      <table className="w-full text-sm border">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="p-2 text-left">Judul</th>
+                            <th className="p-2 text-left">Penerima</th>
+                            <th className="p-2 text-left">Jenis</th>
+                            <th className="p-2 text-left">Waktu Kirim</th>
+                            <th className="p-2 text-left">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {telegramQueue.map(reminder => (
+                            <tr key={`tg-${reminder.id}`} className="border-t">
+                              <td className="p-2">{reminder.title}</td>
+                              <td className="p-2">{reminder.recipients.join(', ')}</td>
+                              <td className="p-2">{reminder.type}</td>
+                              <td className="p-2">09:00 AM</td>
+                              <td className="p-2">Queued</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </CardContent>
+                </Card>
+                {/* End Telegram Queue Section */}
+                
                 <div className="space-y-4">
                   {activeReminders.map((reminder) => {
                     const TypeIcon = getTypeIcon(reminder.type);

@@ -146,35 +146,6 @@ const CostReporting = () => {
     setShowCostForm(false);
   }, []);
 
-  // Calculate summary statistics
-  const totalOperationalCost = costs.reduce((sum, cost) => sum + cost.jumlah, 0);
-  const fuelCosts = costs.filter(c => c.jenisBiaya === 'Bahan Bakar').reduce((sum, cost) => sum + cost.jumlah, 0);
-  const tollCosts = costs.filter(c => c.jenisBiaya === 'Tol').reduce((sum, cost) => sum + cost.jumlah, 0);
-  const otherCosts = totalOperationalCost - fuelCosts - tollCosts;
-
-  // Group costs by vehicle
-  const costsByVehicle = costs.reduce((acc, cost) => {
-    if (!acc[cost.platNomor]) {
-      acc[cost.platNomor] = 0;
-    }
-    acc[cost.platNomor] += cost.jumlah;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const getCostTypeBadge = (type: string) => {
-    const typeColors = {
-      'Bahan Bakar': 'bg-blue-100 text-blue-800',
-      'Tol': 'bg-green-100 text-green-800',
-      'Parkir': 'bg-yellow-100 text-yellow-800',
-      'Denda': 'bg-red-100 text-red-800',
-      'Perawatan': 'bg-purple-100 text-purple-800',
-      'Asuransi': 'bg-indigo-100 text-indigo-800',
-      'Pajak': 'bg-pink-100 text-pink-800',
-      'Lain-lain': 'bg-gray-100 text-gray-800'
-    };
-    return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
-  };
-
   // Form input change handlers with useCallback for optimization
   const handleVehicleChange = useCallback((value: string) => {
     setFormData(prev => ({ ...prev, vehicleId: value }));
@@ -200,6 +171,91 @@ const CostReporting = () => {
   const handleLokasiChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, lokasi: e.target.value }));
   }, []);
+
+  // Filter costs based on selected period
+  const filteredCosts = useMemo(() => {
+    const now = new Date();
+    
+    return costs.filter(cost => {
+      const costDate = new Date(cost.tanggal);
+      
+      switch (selectedPeriod) {
+        case 'this-month':
+          return costDate.getMonth() === now.getMonth() && 
+                 costDate.getFullYear() === now.getFullYear();
+        
+        case 'last-month':
+          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          return costDate.getMonth() === lastMonth.getMonth() && 
+                 costDate.getFullYear() === lastMonth.getFullYear();
+        
+        case 'this-quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const costQuarter = Math.floor(costDate.getMonth() / 3);
+          return costQuarter === currentQuarter && 
+                 costDate.getFullYear() === now.getFullYear();
+        
+        case 'custom':
+          // For now, show all data when custom is selected
+          // TODO: Add date range picker for custom period
+          return true;
+        
+        default:
+          return true;
+      }
+    });
+  }, [costs, selectedPeriod]);
+
+  // Calculate summary statistics using filtered costs
+  const totalOperationalCost = filteredCosts.reduce((sum, cost) => sum + cost.jumlah, 0);
+  const fuelCosts = filteredCosts.filter(c => c.jenisBiaya === 'Bahan Bakar').reduce((sum, cost) => sum + cost.jumlah, 0);
+  const tollCosts = filteredCosts.filter(c => c.jenisBiaya === 'Tol').reduce((sum, cost) => sum + cost.jumlah, 0);
+  const otherCosts = totalOperationalCost - fuelCosts - tollCosts;
+
+  // Group filtered costs by vehicle
+  const costsByVehicle = filteredCosts.reduce((acc, cost) => {
+    if (!acc[cost.platNomor]) {
+      acc[cost.platNomor] = 0;
+    }
+    acc[cost.platNomor] += cost.jumlah;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const getCostTypeBadge = (type: string) => {
+    const typeColors = {
+      'Bahan Bakar': 'bg-blue-100 text-blue-800',
+      'Tol': 'bg-green-100 text-green-800',
+      'Parkir': 'bg-yellow-100 text-yellow-800',
+      'Denda': 'bg-red-100 text-red-800',
+      'Perawatan': 'bg-purple-100 text-purple-800',
+      'Asuransi': 'bg-indigo-100 text-indigo-800',
+      'Pajak': 'bg-pink-100 text-pink-800',
+      'Lain-lain': 'bg-gray-100 text-gray-800'
+    };
+    return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Get period description for user feedback
+  const getPeriodDescription = (period: string) => {
+    const now = new Date();
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    switch (period) {
+      case 'this-month':
+        return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      case 'last-month':
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
+      case 'this-quarter':
+        const quarter = Math.floor(now.getMonth() / 3) + 1;
+        return `Kuartal ${quarter} ${now.getFullYear()}`;
+      case 'custom':
+        return 'Periode Kustom (Semua Data)';
+      default:
+        return 'Semua Data';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -378,7 +434,17 @@ const CostReporting = () => {
             <div className="p-6">
               {/* Period Selector */}
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">Laporan Biaya Operasional</h3>
+                <div>
+                  <h3 className="text-lg font-semibold">Laporan Biaya Operasional</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Menampilkan data untuk: <span className="font-medium text-blue-600">{getPeriodDescription(selectedPeriod)}</span>
+                  </p>
+                  {filteredCosts.length !== costs.length && (
+                    <Badge variant="outline" className="mt-2 text-blue-600 border-blue-600">
+                      {filteredCosts.length} dari {costs.length} transaksi
+                    </Badge>
+                  )}
+                </div>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -394,8 +460,8 @@ const CostReporting = () => {
 
               <TabsContent value="recent" className="mt-0">
                 <div className="space-y-4">
-                  {costs.length > 0 ? (
-                    costs.sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((cost) => (
+                  {filteredCosts.length > 0 ? (
+                    filteredCosts.sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((cost) => (
                       <div key={cost.id} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 flex-1">
@@ -446,7 +512,7 @@ const CostReporting = () => {
                   <h4 className="font-semibold">Biaya Operasional per Kendaraan</h4>
                   {Object.keys(costsByVehicle).length > 0 ? (
                     Object.entries(costsByVehicle).map(([platNomor, totalCost]) => {
-                      const vehicleCosts = costs.filter(c => c.platNomor === platNomor);
+                      const vehicleCosts = filteredCosts.filter(c => c.platNomor === platNomor);
                       return (
                         <Card key={platNomor}>
                           <CardHeader>
@@ -550,7 +616,7 @@ const CostReporting = () => {
                           </div>
                           <div className="text-center p-4 bg-green-50 rounded">
                             <div className="text-2xl font-bold text-green-600">
-                              {costs.length}
+                              {filteredCosts.length}
                             </div>
                             <p className="text-sm text-gray-600">Total transaksi tercatat</p>
                           </div>

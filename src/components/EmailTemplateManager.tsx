@@ -417,7 +417,7 @@ Best regards,
       '{date}': '15 Januari 2025',
       '{title}': 'Service Rutin',
       '{document}': 'STNK',
-      '{company}': 'Fleet Management System',
+              '{company}': 'GasTrax System - Smartek Sistem Indonesia',
       '{urgency}': 'SEDANG',
       '{today}': new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
     };

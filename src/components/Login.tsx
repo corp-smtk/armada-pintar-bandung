@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getAvailableCompanyLogins } from '@/services/DummyDataLoader';
 
 interface LoginProps {
   onLogin: (username: string) => void;
@@ -9,6 +10,9 @@ const USERS = [
   { username: 'companyB', password: 'passwordB' },
   { username: 'companyC', password: 'passwordC' },
 ];
+
+// Get company info for display
+const DEMO_COMPANIES = getAvailableCompanyLogins();
 
 const Login = ({ onLogin }: LoginProps) => {
   const [username, setUsername] = useState('');
@@ -86,6 +90,44 @@ const Login = ({ onLogin }: LoginProps) => {
             Lupa Kata Sandi?
           </a>
         </form>
+        
+        {/* Demo Company Info */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">Demo Perusahaan (Testing)</h3>
+          <div className="space-y-2 text-xs text-blue-700">
+            {DEMO_COMPANIES.map((company, index) => (
+              <div key={company.username} className="flex flex-col">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{company.username}</span>
+                  <button 
+                    onClick={() => {
+                      setUsername(company.username);
+                      setPassword(`password${company.username.slice(-1)}`);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+                <span className="text-blue-600">{company.name}</span>
+                <span className="text-blue-500">{company.email}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-blue-600 mt-2 italic">
+            Klik "Auto-fill" untuk mengisi login otomatis dengan data dummy lengkap
+          </p>
+          <button 
+            onClick={() => {
+              localStorage.clear();
+              console.log('🧹 LocalStorage cleared for testing');
+            }}
+            className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+          >
+            Clear Storage (for testing)
+          </button>
+        </div>
+        
         <p className="footer-text mt-8 text-xs text-gray-400">© GasTrax 2025 by Smartek Sistem Indonesia. Semua Hak Dilindungi.</p>
       </div>
     </div>
