@@ -90,13 +90,22 @@ sudo npm install -g pm2
 sudo apt install git -y
 ```
 
-#### 2. Clone and Deploy
+#### 2. Clone and Deploy Latest Changes
 ```bash
-# Clone repository
+# Clone repository (use the actual repository URL)
 cd /tmp
-git clone https://github.com/your-repo/armada-pintar-bandung.git
+git clone https://github.com/corp-smtk/armada-pintar-bandung.git
 cd armada-pintar-bandung
+
+# Switch to the latest branch with all recent updates
 git checkout gasfleet-internal-test
+
+# Pull the latest changes (important!)
+git pull origin gasfleet-internal-test
+
+# Verify the images are included
+ls -la img/
+# Should show: login-bg.png and other image files
 
 # Run deployment script
 sudo chmod +x deploy.sh
@@ -187,15 +196,63 @@ Production environment is automatically configured in `/var/www/gastrax-system/.
 - Telegram bot configuration
 - Production settings
 
+## 🔄 Updating Existing Deployment
+
+### Get Latest Changes from gasfleet-internal-test Branch:
+```bash
+# Stop services temporarily
+pm2 stop gastrax-proxy
+
+# Navigate to deployment directory
+cd /tmp
+rm -rf armada-pintar-bandung  # Remove old version
+
+# Clone latest version
+git clone https://github.com/corp-smtk/armada-pintar-bandung.git
+cd armada-pintar-bandung
+
+# Switch to latest branch
+git checkout gasfleet-internal-test
+git pull origin gasfleet-internal-test
+
+# Verify images are present
+ls -la img/
+echo "✅ Images found:" && ls img/
+
+# Backup current .env if exists
+sudo cp /var/www/gastrax-system/.env /tmp/backup.env 2>/dev/null || echo "No existing .env found"
+
+# Run deployment script (will update everything including images)
+sudo chmod +x deploy.sh
+sudo ./deploy.sh gastrax.smarteksistem.com
+
+# Restore environment settings if needed
+sudo cp /tmp/backup.env /var/www/gastrax-system/.env 2>/dev/null || echo "Using new environment"
+
+# Restart services
+pm2 restart gastrax-proxy
+sudo systemctl reload nginx
+```
+
 ## 📝 Maintenance Commands
 
 ```bash
 # Restart proxy service
 pm2 restart gastrax-proxy
 
-# Update application
-cd /tmp && git pull origin gasfleet-internal-test
+# Quick update (if you know only code changed)
+cd /tmp/armada-pintar-bandung && git pull origin gasfleet-internal-test
 sudo ./deploy.sh gastrax.smarteksistem.com
+
+# Full update (recommended for major changes)
+cd /tmp && rm -rf armada-pintar-bandung
+git clone https://github.com/corp-smtk/armada-pintar-bandung.git
+cd armada-pintar-bandung && git checkout gasfleet-internal-test
+sudo ./deploy.sh gastrax.smarteksistem.com
+
+# Check images are deployed correctly
+ls -la /var/www/gastrax-system/img/
+curl -I https://gastrax.smarteksistem.com/img/login-bg.png
 
 # View logs
 pm2 logs gastrax-proxy

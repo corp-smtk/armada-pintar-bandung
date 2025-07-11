@@ -45,6 +45,21 @@ sudo cp ecosystem.config.js "$DEPLOY_DIR/"
 sudo cp package.json "$DEPLOY_DIR/"
 sudo cp package-lock.json "$DEPLOY_DIR/"
 
+# Copy images folder (IMPORTANT: Required for login background and other assets)
+echo "📸 Copying images and assets..."
+if [ -d "img" ]; then
+    sudo cp -r img "$DEPLOY_DIR/"
+    echo "✅ Images copied: $(ls -la img/ | wc -l) files"
+    echo "📸 Image files: $(ls img/)"
+else
+    echo "⚠️ Warning: img folder not found in source!"
+fi
+
+# Copy public assets if they exist
+if [ -d "public" ]; then
+    sudo cp -r public/* "$DEPLOY_DIR/" 2>/dev/null || echo "ℹ️ No additional public assets to copy"
+fi
+
 # Update ecosystem config with correct domain
 echo "⚙️ Updating configuration..."
 sudo sed -i "s/yourdomain.com/$DOMAIN/g" "$DEPLOY_DIR/ecosystem.config.js"
@@ -106,9 +121,26 @@ fi
 
 echo "✅ Deployment completed successfully!"
 echo ""
+echo "🔍 Deployment verification:"
 echo "🌐 Application deployed to: $DEPLOY_DIR"
 echo "📊 Proxy running on: http://localhost:3001"
 echo "🏥 Health check: http://localhost:3001/health"
+
+# Verify images were deployed
+echo ""
+echo "📸 Image deployment verification:"
+if [ -d "$DEPLOY_DIR/img" ]; then
+    echo "✅ Images folder deployed successfully"
+    echo "📂 Deployed images: $(ls -la $DEPLOY_DIR/img/ 2>/dev/null | wc -l) files"
+    ls -la "$DEPLOY_DIR/img/" 2>/dev/null | head -5
+    if [ -f "$DEPLOY_DIR/img/login-bg.png" ]; then
+        echo "✅ login-bg.png deployed ($(stat -c%s $DEPLOY_DIR/img/login-bg.png 2>/dev/null || echo '?') bytes)"
+    else
+        echo "❌ WARNING: login-bg.png not found in deployed images!"
+    fi
+else
+    echo "❌ WARNING: Images folder not deployed!"
+fi
 echo ""
 echo "📋 Next steps:"
 echo "   1. Configure nginx to serve the application"
@@ -116,6 +148,7 @@ echo "   2. Set up SSL certificate"
 echo "   3. Update DNS to point to this server"
 echo "   4. Update system credentials in $DEPLOY_DIR/.env"
 echo "   5. Test all communication channels"
+echo "   6. Verify images are accessible: https://$DOMAIN/img/login-bg.png"
 echo ""
 echo "🔧 Useful commands:"
 echo "   pm2 status          - Check proxy status"

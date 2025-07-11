@@ -92,16 +92,28 @@ sudo ufw allow 3001  # For proxy server
    - Set encryption mode to **"Full"** or **"Full (strict)"**
    - Enable **"Always Use HTTPS"**
 
-### Step 3: Upload and Build Your Code
+### Step 3: Get Latest Code with Images
 ```bash
-# Option A: Direct upload from your local machine
-scp -r ./armada-pintar-bandung root@43.133.150.234:/tmp/gastrax-system
+# Get latest code from gasfleet-internal-test branch
+cd /tmp
+git clone https://github.com/corp-smtk/armada-pintar-bandung.git gastrax-system
+cd gastrax-system
 
-# Option B: Clone from repository (if you have one)
-git clone <your-repo-url> /tmp/gastrax-system
+# Switch to the latest branch with all recent updates
+git checkout gasfleet-internal-test
 
-# Navigate to the uploaded code
-cd /tmp/gastrax-system
+# Pull the latest changes (includes all recent fixes)
+git pull origin gasfleet-internal-test
+
+# ✅ IMPORTANT: Verify images are included
+ls -la img/
+echo "📸 Checking for required images:"
+ls -la img/login-bg.png || echo "❌ login-bg.png missing!"
+echo "✅ Image verification complete"
+
+# Show what we have
+echo "📦 Files ready for deployment:"
+ls -la
 ```
 
 ### Step 4: Deploy with Custom Script
@@ -109,8 +121,13 @@ cd /tmp/gastrax-system
 # Make deploy script executable
 chmod +x deploy.sh
 
-# Deploy with your domain (automatically configures everything)
+# Deploy with your domain (automatically configures everything including images)
 sudo ./deploy.sh gastrax.smarteksistem.com
+
+# ✅ Verify images are deployed to server
+echo "🔍 Checking deployed images:"
+ls -la /var/www/gastrax-system/img/
+echo "✅ Images deployment check complete"
 ```
 
 ### Step 5: Configure System Credentials
@@ -252,13 +269,85 @@ pm2 stop zapin-proxy
 pm2 monit
 ```
 
-### Application Updates
-```bash
-# To update the application
-cd /path/to/your/source
-git pull  # or upload new files
+### 🔄 **Application Updates - Get Latest Changes**
 
-# Rebuild and redeploy
+#### Option 1: Quick Update (for small changes)
+```bash
+# Navigate to existing source
+cd /tmp/gastrax-system
+
+# Pull latest changes from gasfleet-internal-test branch
+git checkout gasfleet-internal-test
+git pull origin gasfleet-internal-test
+
+# Verify images are present
+echo "📸 Checking images after update:"
+ls -la img/
+
+# Redeploy
+sudo ./deploy.sh gastrax.smarteksistem.com
+
+# Verify images are deployed
+ls -la /var/www/gastrax-system/img/
+```
+
+#### Option 2: Full Fresh Update (recommended for major changes)
+```bash
+# Stop services temporarily
+pm2 stop gastrax-proxy
+
+# Remove old source and get fresh copy
+cd /tmp
+rm -rf gastrax-system
+
+# Clone latest version from gasfleet-internal-test branch
+git clone https://github.com/corp-smtk/armada-pintar-bandung.git gastrax-system
+cd gastrax-system
+
+# Switch to latest branch and pull all changes
+git checkout gasfleet-internal-test
+git pull origin gasfleet-internal-test
+
+# ✅ CRITICAL: Verify all images are present
+echo "📸 Verifying required images:"
+ls -la img/
+if [ -f "img/login-bg.png" ]; then
+    echo "✅ login-bg.png found ($(stat -c%s img/login-bg.png) bytes)"
+else
+    echo "❌ ERROR: login-bg.png missing!"
+fi
+
+# Backup current environment
+sudo cp /var/www/gastrax-system/.env /tmp/backup.env 2>/dev/null || echo "No existing .env to backup"
+
+# Deploy with fresh code and images
+sudo ./deploy.sh gastrax.smarteksistem.com
+
+# Restore environment settings
+sudo cp /tmp/backup.env /var/www/gastrax-system/.env 2>/dev/null || echo "Using new environment configuration"
+
+# Restart services
+pm2 restart gastrax-proxy
+sudo systemctl reload nginx
+
+# ✅ Final verification: Check images are deployed
+echo "🔍 Final check - Images deployed to server:"
+ls -la /var/www/gastrax-system/img/
+echo "🌐 Testing image accessibility:"
+curl -I https://gastrax.smarteksistem.com/img/login-bg.png
+echo "✅ Update complete!"
+```
+
+#### Option 3: Update from Specific Commit
+```bash
+# If you need a specific commit from gasfleet-internal-test
+cd /tmp/gastrax-system
+git checkout gasfleet-internal-test
+git pull origin gasfleet-internal-test
+git checkout <specific-commit-hash>  # if needed
+
+# Verify and deploy as above
+ls -la img/
 sudo ./deploy.sh gastrax.smarteksistem.com
 ```
 
