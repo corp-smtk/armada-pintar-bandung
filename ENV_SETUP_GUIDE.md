@@ -97,11 +97,11 @@ Replace these values in your `.env.local` file:
 VITE_SYSTEM_EMAILJS_SERVICE_ID=service_abc123        # From EmailJS
 VITE_SYSTEM_EMAILJS_TEMPLATE_ID=template_def456      # From EmailJS  
 VITE_SYSTEM_EMAILJS_PUBLIC_KEY=user_ghi789           # From EmailJS
-VITE_SYSTEM_FROM_EMAIL=your_email@yourdomain.com     # Your business email
+VITE_SYSTEM_FROM_EMAIL=reminder@smarteksistem.com     # Your business email
 VITE_SYSTEM_FROM_NAME=Your Company Name              # Your company name
 
 VITE_SYSTEM_ZAPIN_API_KEY=your_zapin_api_key         # From Zapin
-VITE_SYSTEM_ZAPIN_SENDER=6281234567890               # Your WhatsApp number
+VITE_SYSTEM_ZAPIN_SENDER=6285691232473               # Your WhatsApp number
 
 VITE_SYSTEM_TELEGRAM_BOT_TOKEN=123456:ABC-DEF...     # From BotFather
 VITE_SYSTEM_TELEGRAM_CHAT_ID=@your_channel           # Your chat/channel
@@ -114,11 +114,11 @@ Update the same values in your `.env` file:
 SYSTEM_EMAILJS_SERVICE_ID=service_abc123
 SYSTEM_EMAILJS_TEMPLATE_ID=template_def456
 SYSTEM_EMAILJS_PUBLIC_KEY=user_ghi789
-SYSTEM_FROM_EMAIL=your_email@yourdomain.com
+SYSTEM_FROM_EMAIL=reminder@smarteksistem.com
 SYSTEM_FROM_NAME=Your Company Name
 
 SYSTEM_ZAPIN_API_KEY=your_zapin_api_key
-SYSTEM_ZAPIN_SENDER=6281234567890
+SYSTEM_ZAPIN_SENDER=6285691232473
 
 SYSTEM_TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 SYSTEM_TELEGRAM_CHAT_ID=@your_channel

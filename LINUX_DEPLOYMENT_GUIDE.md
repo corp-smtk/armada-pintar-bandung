@@ -125,11 +125,11 @@ sudo nano /var/www/gastrax-system/.env
 SYSTEM_EMAILJS_SERVICE_ID=your_real_service_id
 SYSTEM_EMAILJS_TEMPLATE_ID=your_real_template_id  
 SYSTEM_EMAILJS_PUBLIC_KEY=your_real_public_key
-SYSTEM_FROM_EMAIL=noreply@smarteksistem.com
+SYSTEM_FROM_EMAIL=reminder@smarteksistem.com
 SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia
 
 SYSTEM_ZAPIN_API_KEY=your_real_zapin_api_key
-SYSTEM_ZAPIN_SENDER=your_real_whatsapp_number
+SYSTEM_ZAPIN_SENDER=6285691232473
 
 # Restart proxy to load new credentials
 pm2 restart zapin-proxy

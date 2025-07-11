@@ -1,3 +1,18 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
+// Debug: Log which environment variables are loaded (for troubleshooting)
+console.log('🔧 Environment variables loaded:');
+console.log('  EMAIL CONFIG:');
+console.log(`    SYSTEM_EMAILJS_SERVICE_ID: ${process.env.SYSTEM_EMAILJS_SERVICE_ID ? 'Set ✅' : 'Not set ❌'}`);
+console.log(`    SYSTEM_EMAILJS_TEMPLATE_ID: ${process.env.SYSTEM_EMAILJS_TEMPLATE_ID ? 'Set ✅' : 'Not set ❌'}`);
+console.log(`    SYSTEM_EMAILJS_PUBLIC_KEY: ${process.env.SYSTEM_EMAILJS_PUBLIC_KEY ? 'Set ✅' : 'Not set ❌'}`);
+console.log(`    SYSTEM_FROM_EMAIL: ${process.env.SYSTEM_FROM_EMAIL || 'Using default: reminder@smarteksistem.com'}`);
+console.log('  WHATSAPP CONFIG:');
+console.log(`    SYSTEM_ZAPIN_API_KEY: ${process.env.SYSTEM_ZAPIN_API_KEY ? 'Set ✅' : 'Not set ❌'}`);
+console.log(`    SYSTEM_ZAPIN_SENDER: ${process.env.SYSTEM_ZAPIN_SENDER || 'Using default: 6285691232473'}`);
+console.log('');
+
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
@@ -10,12 +25,12 @@ const SYSTEM_CONFIG = {
     serviceId: process.env.SYSTEM_EMAILJS_SERVICE_ID || 'service_gastrax_001',
     templateId: process.env.SYSTEM_EMAILJS_TEMPLATE_ID || 'template_gastrax_001',
     publicKey: process.env.SYSTEM_EMAILJS_PUBLIC_KEY || 'gastrax_public_key_001',
-    fromEmail: process.env.SYSTEM_FROM_EMAIL || 'noreply@gastrax.smartek.co.id',
+    fromEmail: process.env.SYSTEM_FROM_EMAIL || 'reminder@smarteksistem.com',
     fromName: process.env.SYSTEM_FROM_NAME || 'GasTrax System - Smartek Sistem Indonesia'
   },
   whatsapp: {
     apiKey: process.env.SYSTEM_ZAPIN_API_KEY || 'system_zapin_key_001',
-    sender: process.env.SYSTEM_ZAPIN_SENDER || '6285720156766'
+    sender: process.env.SYSTEM_ZAPIN_SENDER || '6285691232473'
   },
   telegram: {
     botToken: process.env.SYSTEM_TELEGRAM_BOT_TOKEN || 'system_telegram_bot_001',
@@ -25,8 +40,25 @@ const SYSTEM_CONFIG = {
 
 // Enhanced CORS configuration for production
 app.use(cors({
-  origin: process.env.FRONTEND_URL || true, // Allow all origins in development
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://gastrax.smarteksistem.com',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 }));
 
 app.use(express.json());

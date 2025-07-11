@@ -65,15 +65,15 @@ APP_VERSION=1.0.0
 
 # System Configuration - IMPORTANT: Update these with your actual credentials
 # EmailJS System Configuration (REQUIRED)
-SYSTEM_EMAILJS_SERVICE_ID=service_gastrax_001
-SYSTEM_EMAILJS_TEMPLATE_ID=template_gastrax_001
-SYSTEM_EMAILJS_PUBLIC_KEY=gastrax_public_key_001
-SYSTEM_FROM_EMAIL=noreply@smarteksistem.com
+SYSTEM_EMAILJS_SERVICE_ID=service_gzjclqi
+SYSTEM_EMAILJS_TEMPLATE_ID=template_pt3ndpf
+SYSTEM_EMAILJS_PUBLIC_KEY=3IJlW5x9KGB1VmVr9
+SYSTEM_FROM_EMAIL=reminder@smarteksistem.com
 SYSTEM_FROM_NAME=GasTrax System - Smartek Sistem Indonesia
 
 # WhatsApp Zapin API System Configuration (REQUIRED)
-SYSTEM_ZAPIN_API_KEY=system_zapin_key_001
-SYSTEM_ZAPIN_SENDER=6285720156766
+SYSTEM_ZAPIN_API_KEY=bdya98Gl2nXJ7VAKoANO2NSHurDOrR
+SYSTEM_ZAPIN_SENDER=6285691232473
 
 # Telegram Bot System Configuration (OPTIONAL)
 SYSTEM_TELEGRAM_BOT_TOKEN=system_telegram_bot_001
