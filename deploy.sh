@@ -41,7 +41,7 @@ sudo mkdir -p "$DEPLOY_DIR/logs"
 echo "📋 Copying application files..."
 sudo cp -r dist/* "$DEPLOY_DIR/"
 sudo cp zapin-proxy.cjs "$DEPLOY_DIR/"
-sudo cp ecosystem.config.js "$DEPLOY_DIR/"
+sudo cp ecosystem.config.cjs "$DEPLOY_DIR/"
 sudo cp package.json "$DEPLOY_DIR/"
 sudo cp package-lock.json "$DEPLOY_DIR/"
 
@@ -62,7 +62,7 @@ fi
 
 # Update ecosystem config with correct domain
 echo "⚙️ Updating configuration..."
-sudo sed -i "s/yourdomain.com/$DOMAIN/g" "$DEPLOY_DIR/ecosystem.config.js"
+sudo sed -i "s/yourdomain.com/$DOMAIN/g" "$DEPLOY_DIR/ecosystem.config.cjs"
 
 # Create environment configuration
 echo "📝 Creating environment file..."
@@ -109,12 +109,12 @@ sudo chmod -R 755 "$DEPLOY_DIR"
 echo "🔄 Managing proxy service..."
 if command -v pm2 &> /dev/null; then
     pm2 delete gastrax-proxy 2>/dev/null || true
-    pm2 start ecosystem.config.js --env production
+    pm2 start ecosystem.config.cjs --env production
     pm2 save
 else
     echo "⚠️ PM2 not installed. Installing PM2..."
     sudo npm install -g pm2
-    
+    pm2 start ecosystem.config.cjs --env production
     pm2 save
     pm2 startup
 fi

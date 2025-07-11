@@ -10,7 +10,7 @@
 
 ### 1. Configuration Files Ready
 - ✅ `deploy.sh` - Configured for gastrax.smarteksistem.com
-- ✅ `ecosystem.config.js` - PM2 configuration ready
+- ✅ `ecosystem.config.cjs` - PM2 configuration ready
 - ✅ `nginx.conf` - Nginx configuration with Cloudflare support
 - ✅ `zapin-proxy.cjs` - WhatsApp proxy service
 - ✅ Environment variables configured in deploy.sh

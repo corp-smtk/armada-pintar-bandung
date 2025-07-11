@@ -223,7 +223,7 @@ curl -I https://gastrax.smarteksistem.com | grep -i cloudflare
 ## 🔧 **Configuration Options**
 
 ### Environment Variables
-Update `/var/www/fleet-management/ecosystem.config.js`:
+Update `/var/www/fleet-management/ecosystem.config.cjs`:
 
 ```javascript
 env_production: {
@@ -239,7 +239,7 @@ If you want to run API on different port or subdomain:
 
 ```bash
 # Option 1: Different port
-# Update PORT in ecosystem.config.js and nginx proxy_pass
+# Update PORT in ecosystem.config.cjs and nginx proxy_pass
 
 # Option 2: Subdomain (api.yourdomain.com)
 # Create separate nginx config for subdomain
