@@ -323,7 +323,15 @@ const ReminderManagement = () => {
   };
 
   const CreateReminderForm = () => {
-    console.log('🔥 [DEBUG] CreateReminderForm RENDER');
+    console.log('🔥 [DEBUG] CreateReminderForm RENDER - Component Mounted/Re-rendered');
+    
+    // Track component lifecycle
+    useEffect(() => {
+      console.log('🔥 [DEBUG] CreateReminderForm MOUNTED');
+      return () => {
+        console.log('🔥 [DEBUG] CreateReminderForm UNMOUNTED - This could cause state loss!');
+      };
+    }, []);
     
     const { toast } = useToast();
     const reminderService = useReminderService();
@@ -346,6 +354,26 @@ const ReminderManagement = () => {
     });
     
     console.log('🔥 [DEBUG] Current FormData State:', formData);
+
+    // Enhanced logging wrapper for setFormData
+    const setFormDataWithLogging = (updater: any) => {
+      if (typeof updater === 'function') {
+        setFormData(prev => {
+          const newState = updater(prev);
+          console.log('🔥 [DEBUG] FORM STATE CHANGE:');
+          console.log('  Previous:', prev);
+          console.log('  New:', newState);
+          console.log('  Changes detected in:', Object.keys(newState).filter(key => 
+            JSON.stringify(prev[key]) !== JSON.stringify(newState[key])
+          ));
+          return newState;
+        });
+      } else {
+        console.log('🔥 [DEBUG] FORM STATE RESET:');
+        console.log('  Setting to:', updater);
+        setFormData(updater);
+      }
+    };
 
     // Monitor formData.selectedTemplateId changes
     useEffect(() => {
@@ -422,22 +450,13 @@ const ReminderManagement = () => {
         // Update multiple state pieces separately to ensure they all trigger
         console.log('🔥 [DEBUG] Updating selectedTemplateId from:', formData.selectedTemplateId, 'to:', template.type);
         
-        setFormData(prev => {
-          const newFormData = {
-            ...prev,
-            type: template.type,
-            title: template.title,
-            daysBeforeAlert: template.defaultDays,
-            selectedTemplateId: template.type
-          };
-          
-          console.log('🔥 [DEBUG] FormData State Update:');
-          console.log('  - Old:', prev);
-          console.log('  - New:', newFormData);
-          console.log('  - selectedTemplateId changed:', prev.selectedTemplateId, '->', newFormData.selectedTemplateId);
-          
-          return newFormData;
-        });
+        setFormDataWithLogging(prev => ({
+          ...prev,
+          type: template.type,
+          title: template.title,
+          daysBeforeAlert: template.defaultDays,
+          selectedTemplateId: template.type
+        }));
         
         // Clear validation errors when template changes
         setValidationErrors([]);
@@ -576,7 +595,8 @@ const ReminderManagement = () => {
         });
 
         // Reset form
-        setFormData({
+        console.log('🔥 [DEBUG] FORM RESET AFTER SUCCESSFUL SUBMIT');
+        setFormDataWithLogging({
           title: '',
           type: '',
           vehicle: '',
@@ -683,7 +703,7 @@ const ReminderManagement = () => {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setFormDataWithLogging(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Masukkan judul reminder"
               />
             </div>
@@ -691,7 +711,7 @@ const ReminderManagement = () => {
               <Label htmlFor="vehicle">Kendaraan *</Label>
               <Select 
                 value={formData.vehicle} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, vehicle: value }))}
+                onValueChange={(value) => setFormDataWithLogging(prev => ({ ...prev, vehicle: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kendaraan" />
@@ -708,7 +728,7 @@ const ReminderManagement = () => {
                 <Label htmlFor="document">Jenis Dokumen</Label>
                 <Select 
                   value={formData.document}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, document: value }))}
+                  onValueChange={(value) => setFormDataWithLogging(prev => ({ ...prev, document: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih dokumen" />
@@ -728,7 +748,7 @@ const ReminderManagement = () => {
                 id="triggerDate"
                 type="date"
                 value={formData.triggerDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, triggerDate: e.target.value }))}
+                onChange={(e) => setFormDataWithLogging(prev => ({ ...prev, triggerDate: e.target.value }))}
               />
             </div>
           </div>
@@ -744,12 +764,12 @@ const ReminderManagement = () => {
                     checked={formData.daysBeforeAlert.includes(day)}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setFormData(prev => ({
+                        setFormDataWithLogging(prev => ({
                           ...prev,
                           daysBeforeAlert: [...prev.daysBeforeAlert, day].sort((a, b) => b - a)
                         }));
                       } else {
-                        setFormData(prev => ({
+                        setFormDataWithLogging(prev => ({
                           ...prev,
                           daysBeforeAlert: prev.daysBeforeAlert.filter(d => d !== day)
                         }));
@@ -773,9 +793,9 @@ const ReminderManagement = () => {
                   checked={formData.channels.includes('email')}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'email'] }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: [...prev.channels, 'email'] }));
                     } else {
-                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'email') }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'email') }));
                     }
                   }}
                   className="rounded"
@@ -789,9 +809,9 @@ const ReminderManagement = () => {
                   checked={formData.channels.includes('whatsapp')}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'whatsapp'] }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: [...prev.channels, 'whatsapp'] }));
                     } else {
-                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'whatsapp') }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'whatsapp') }));
                     }
                   }}
                   className="rounded"
@@ -805,9 +825,9 @@ const ReminderManagement = () => {
                   checked={formData.channels.includes('telegram')}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'telegram'] }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: [...prev.channels, 'telegram'] }));
                     } else {
-                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'telegram') }));
+                      setFormDataWithLogging(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'telegram') }));
                     }
                   }}
                   className="rounded"
@@ -828,6 +848,9 @@ const ReminderManagement = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => {
+                    console.log('🔥 [DEBUG] "Gunakan Kontak" button clicked');
+                    console.log('🔥 [DEBUG] Current formData before contact selection:', formData);
+                    
                     // Auto-select contacts from the Kontak tab
                     const contactEmails = contacts.map((c: any) => c.email);
                     const contactWhatsApp = contacts.map((c: any) => c.whatsapp);
@@ -840,6 +863,8 @@ const ReminderManagement = () => {
                       selectedRecipients.push(...contactWhatsApp);
                     }
                     
+                    console.log('🔥 [DEBUG] Selected recipients:', selectedRecipients);
+                    
                     setSelectedEmailContacts(selectedRecipients);
                     setRecipientsText('');
                     
@@ -847,6 +872,8 @@ const ReminderManagement = () => {
                       title: "Kontak Dipilih",
                       description: `${selectedRecipients.length} kontak dari tab Kontak berhasil dipilih`,
                     });
+                    
+                    console.log('🔥 [DEBUG] Contact selection completed');
                   }}
                   className="flex items-center gap-2"
                 >
@@ -907,15 +934,36 @@ const ReminderManagement = () => {
                     selectedTemplateId: {formData.selectedTemplateId || 'null'}<br/>
                     previewMessage length: {previewMessage.length}<br/>
                     previewMessage: {previewMessage.substring(0, 50)}...<br/>
+                    Form Data Hash: {JSON.stringify(formData).substring(0, 30)}...<br/>
+                    Render Count: {Math.random().toString(36).substring(7)}<br/>
                     <button 
                       onClick={() => {
-                        console.log('🔥 [DEBUG] Manual Template Test - Current formData:', formData);
-                        console.log('🔥 [DEBUG] Manual Template Test - Available templates:', quickTemplates.map(t => t.type));
-                        console.log('🔥 [DEBUG] Manual Template Test - Current previewMessage:', previewMessage);
+                        console.log('🔥 [DEBUG] === MANUAL DEBUG DUMP ===');
+                        console.log('🔥 [DEBUG] Current formData:', formData);
+                        console.log('🔥 [DEBUG] Available templates:', quickTemplates.map(t => t.type));
+                        console.log('🔥 [DEBUG] Current previewMessage:', previewMessage);
+                        console.log('🔥 [DEBUG] selectedTemplate state:', selectedTemplate);
+                        console.log('🔥 [DEBUG] recipientsText:', recipientsText);
+                        console.log('🔥 [DEBUG] selectedEmailContacts:', selectedEmailContacts);
+                        console.log('🔥 [DEBUG] === END DEBUG DUMP ===');
                       }}
                       className="mt-2 px-2 py-1 bg-red-500 text-white rounded text-xs"
                     >
                       Log Debug Info
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('🔥 [DEBUG] === FORCE TEMPLATE SELECTION TEST ===');
+                        setFormDataWithLogging(prev => ({
+                          ...prev,
+                          selectedTemplateId: 'service',
+                          title: 'Service Rutin',
+                          type: 'service'
+                        }));
+                      }}
+                      className="mt-2 ml-2 px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                    >
+                      Force Select Service Template
                     </button>
                   </div>
                 )}
@@ -1038,7 +1086,7 @@ const ReminderManagement = () => {
               <Switch
                 id="recurring"
                 checked={formData.isRecurring}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: checked }))}
+                onCheckedChange={(checked) => setFormDataWithLogging(prev => ({ ...prev, isRecurring: checked }))}
               />
               <Label htmlFor="recurring">Reminder Berulang</Label>
             </div>
@@ -1047,13 +1095,13 @@ const ReminderManagement = () => {
                 <Input
                   type="number"
                   value={formData.recurringInterval}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recurringInterval: e.target.value }))}
+                  onChange={(e) => setFormDataWithLogging(prev => ({ ...prev, recurringInterval: e.target.value }))}
                   className="w-20"
                   min="1"
                 />
                 <Select
                   value={formData.recurringUnit}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurringUnit: value }))}
+                                      onValueChange={(value) => setFormDataWithLogging(prev => ({ ...prev, recurringUnit: value }))}
                 >
                   <SelectTrigger className="w-32">
                     <SelectValue />
@@ -1092,20 +1140,21 @@ const ReminderManagement = () => {
               onClick={() => {
                 setShowCreateForm(false);
                 setValidationErrors([]);
-                setFormData(prev => ({
-                  title: '',
-                  type: '',
-                  vehicle: '',
-                  document: '',
-                  triggerDate: '',
-                  daysBeforeAlert: [],
-                  channels: [],
-                  recipients: [],
-                  selectedTemplateId: '',
-                  isRecurring: false,
-                  recurringInterval: '1',
-                  recurringUnit: 'month'
-                }));
+                        console.log('🔥 [DEBUG] FORM RESET FROM CANCEL BUTTON');
+        setFormDataWithLogging({
+          title: '',
+          type: '',
+          vehicle: '',
+          document: '',
+          triggerDate: '',
+          daysBeforeAlert: [],
+          channels: [],
+          recipients: [],
+          selectedTemplateId: '',
+          isRecurring: false,
+          recurringInterval: '1',
+          recurringUnit: 'month'
+        });
                 setRecipientsText('');
                 setSelectedEmailContacts([]);
                 setSelectedTemplate('');
