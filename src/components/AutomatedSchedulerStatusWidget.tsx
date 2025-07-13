@@ -175,6 +175,29 @@ const AutomatedSchedulerStatusWidget = () => {
           </div>
         </div>
 
+        {/* Recipient Information */}
+        <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Settings className="h-4 w-4" />
+            <strong>Penerima Reminder Otomatis</strong>
+          </div>
+          <div className="space-y-1">
+            <div><strong>Email:</strong> {(() => {
+              const contacts = JSON.parse(localStorage.getItem('fleet_contacts') || '[]');
+              const emailContacts = contacts.filter((c: any) => c.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email));
+              return emailContacts.length > 0 ? `${emailContacts.length} kontak terdaftar` : 'irwansyahmirza60@gmail.com (default)';
+            })()}</div>
+            <div><strong>WhatsApp:</strong> {(() => {
+              const contacts = JSON.parse(localStorage.getItem('fleet_contacts') || '[]');
+              const waContacts = contacts.filter((c: any) => c.whatsapp && /^\d{8,15}$/.test(c.whatsapp));
+              return waContacts.length > 0 ? `${waContacts.length} kontak terdaftar` : '6285720153141 (default)';
+            })()}</div>
+            <div className="text-blue-500 mt-1">
+              ℹ️ Sistem menggunakan kontak dari "Manajemen Kontak" atau default jika kosong
+            </div>
+          </div>
+        </div>
+
         {/* Help Text */}
         {!schedulerStatus.isActive && (
           <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded flex items-start gap-2">

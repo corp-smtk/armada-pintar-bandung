@@ -3,8 +3,17 @@ import { localStorageService, ReminderConfig, DeliveryLog } from '@/services/Loc
 import { systemConfigService } from '@/services/SystemConfigService';
 import emailjs from '@emailjs/browser';
 
+// Default fallback recipients when no contacts are configured
+const DEFAULT_RECIPIENTS = {
+  email: 'irwansyahmirza60@gmail.com',
+  whatsapp: '6285720153141'
+};
+
 class ReminderService {
   private toast: any;
+  private emailQueue: ReminderConfig[] = [];
+  private telegramQueue: ReminderConfig[] = [];
+  private whatsappQueue: ReminderConfig[] = [];
 
   constructor() {
     // Toast akan di-inject dari component yang menggunakan service ini
@@ -546,12 +555,11 @@ class ReminderService {
           console.log(`[CLEANUP_DEBUG] ✅ Fixed reminder recipients from fromEmail to contacts:`, validContactEmails);
           cleanedCount++;
         } else {
-          // No valid contacts, pause reminder
-          this.updateReminderConfig(reminder.id, { 
-            status: 'paused',
-            recipients: []
+          // No valid contacts, use default email as fallback
+          this.updateReminderConfig(reminder.id, {
+            recipients: [DEFAULT_RECIPIENTS.email]
           });
-          console.log(`[CLEANUP_DEBUG] ⚠️ No valid contacts found, paused reminder: ${reminder.title}`);
+          console.log(`[CLEANUP_DEBUG] ✅ No contacts found, using default email recipient: ${DEFAULT_RECIPIENTS.email}`);
           cleanedCount++;
         }
       } else if (validRecipients.length === 0 && reminder.recipients.length > 0) {
@@ -653,7 +661,14 @@ class ReminderService {
             .map((contact: any) => contact.email);
           
           console.log(`[REMINDER_DEBUG] Valid email contacts found:`, validEmailContacts);
-          allRecipients.push(...validEmailContacts);
+          
+          if (validEmailContacts.length > 0) {
+            allRecipients.push(...validEmailContacts);
+          } else {
+            // No email contacts found, use default email
+            allRecipients.push(DEFAULT_RECIPIENTS.email);
+            console.log(`[REMINDER_DEBUG] ✅ No email contacts found, using default email: ${DEFAULT_RECIPIENTS.email}`);
+          }
         }
         
         // Get WhatsApp recipients if WhatsApp channel is enabled
@@ -667,7 +682,14 @@ class ReminderService {
             .map((contact: any) => contact.whatsapp);
           
           console.log(`[REMINDER_DEBUG] Valid WhatsApp contacts found:`, validWhatsAppContacts);
-          allRecipients.push(...validWhatsAppContacts);
+          
+          if (validWhatsAppContacts.length > 0) {
+            allRecipients.push(...validWhatsAppContacts);
+          } else {
+            // No WhatsApp contacts found, use default WhatsApp
+            allRecipients.push(DEFAULT_RECIPIENTS.whatsapp);
+            console.log(`[REMINDER_DEBUG] ✅ No WhatsApp contacts found, using default WhatsApp: ${DEFAULT_RECIPIENTS.whatsapp}`);
+          }
         }
         
         // Get Telegram recipients if Telegram channel is enabled
@@ -684,13 +706,9 @@ class ReminderService {
           allRecipients.push(...validTelegramContacts);
         }
         
-        if (allRecipients.length > 0) {
-          recipients = allRecipients;
-          console.log(`[REMINDER_DEBUG] ✅ Using refreshed contact recipients for auto-reminder:`, recipients);
-        } else {
-          console.warn(`[REMINDER_DEBUG] ❌ No valid recipients found in contacts, skipping auto-reminder for: ${doc.jenisDokumen} - ${doc.platNomor}`);
-          continue;
-        }
+        // Now we always have recipients (either from contacts or defaults)
+        recipients = allRecipients;
+        console.log(`[REMINDER_DEBUG] ✅ Using recipients for auto-reminder (${recipients.length} total):`, recipients);
       } else {
         // Single channel and existing recipients exist, use them
         recipients = existing?.recipients || [];
@@ -720,9 +738,10 @@ class ReminderService {
       recipients = validatedRecipients;
       console.log(`[REMINDER_DEBUG] Final recipients after format validation:`, recipients);
       
-      // Final check: Skip if no valid recipients remain
+      // We should always have recipients now (either from contacts or defaults)
       if (recipients.length === 0) {
-        console.warn(`[REMINDER_DEBUG] ❌ All recipients were invalid, skipping auto-reminder for: ${doc.jenisDokumen} - ${doc.platNomor}`);
+        console.error(`[REMINDER_DEBUG] ❌ UNEXPECTED: No recipients after validation and defaults! This should not happen.`);
+        console.error(`[REMINDER_DEBUG] Debug info - Document: ${doc.jenisDokumen} - ${doc.platNomor}, Enabled channels: ${enabledChannels.join(', ')}`);
         continue;
       }
       
@@ -877,12 +896,11 @@ class ReminderService {
           fixedFromEmailCount++;
           cleanedCount++;
         } else {
-          // No valid contacts, pause reminder
-          this.updateReminderConfig(reminder.id, { 
-            status: 'paused',
-            recipients: []
+          // No valid contacts, use default email as fallback
+          this.updateReminderConfig(reminder.id, {
+            recipients: [DEFAULT_RECIPIENTS.email]
           });
-          console.log(`[MANUAL_CLEANUP] ⚠️ No valid contacts found, paused reminder: ${reminder.title}`);
+          console.log(`[MANUAL_CLEANUP] ✅ No contacts found, using default email recipient: ${DEFAULT_RECIPIENTS.email}`);
           cleanedCount++;
         }
       } else if (validRecipients.length === 0 && reminder.recipients.length > 0) {

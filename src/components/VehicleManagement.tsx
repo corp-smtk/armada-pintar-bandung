@@ -93,7 +93,41 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
           r => r.type === 'service' && r.vehicle === platNomor && r.triggerDate === servisBerikutnya
         );
         if (!existing) {
-          const adminEmail = localStorageService.getEmailSettings().fromEmail;
+          // Get recipients from contacts with fallback to defaults
+          const contacts = JSON.parse(localStorage.getItem('fleet_contacts') || '[]');
+          const emailSettings = localStorageService.getEmailSettings();
+          const whatsappSettings = localStorageService.getWhatsAppSettings();
+          
+          let recipients: string[] = [];
+          
+          // Get email recipients
+          if (emailSettings.enabled) {
+            const validEmailContacts = contacts
+              .filter((contact: any) => contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))
+              .map((contact: any) => contact.email);
+            
+            if (validEmailContacts.length > 0) {
+              recipients.push(...validEmailContacts);
+            } else {
+              // No email contacts found, use default email
+              recipients.push('irwansyahmirza60@gmail.com');
+            }
+          }
+          
+          // Get WhatsApp recipients
+          if (whatsappSettings.enabled) {
+            const validWhatsAppContacts = contacts
+              .filter((contact: any) => contact.whatsapp && /^\d{8,15}$/.test(contact.whatsapp))
+              .map((contact: any) => contact.whatsapp);
+            
+            if (validWhatsAppContacts.length > 0) {
+              recipients.push(...validWhatsAppContacts);
+            } else {
+              // No WhatsApp contacts found, use default WhatsApp
+              recipients.push('6285720153141');
+            }
+          }
+          
           reminderService.addReminderConfig({
             title: `Service Rutin: ${platNomor}`,
             type: 'service',
@@ -101,7 +135,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
             triggerDate: servisBerikutnya,
             daysBeforeAlert: [30, 14, 7, 1],
             channels: ['email', 'whatsapp'],
-            recipients: [adminEmail],
+            recipients,
             messageTemplate: 'Kendaraan {vehicle} perlu service pada {date}.',
             isRecurring: false,
             status: 'active'

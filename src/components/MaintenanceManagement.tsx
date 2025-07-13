@@ -766,11 +766,47 @@ const MaintenanceManagement = () => {
         const platNomor = maintenanceData.platNomor;
         const triggerDate = maintenanceData.nextServiceDate;
         const title = `[AUTO] Reminder Service: ${platNomor} - ${maintenanceData.jenisPerawatan}`;
-        const adminEmail = localStorageService.getEmailSettings().fromEmail;
+        
+        // Get recipients from contacts with fallback to defaults
+        const contacts = JSON.parse(localStorage.getItem('fleet_contacts') || '[]');
+        const emailSettings = localStorageService.getEmailSettings();
+        const whatsappSettings = localStorageService.getWhatsAppSettings();
+        
+        let recipients: string[] = [];
+        
+        // Get email recipients
+        if (emailSettings.enabled) {
+          const validEmailContacts = contacts
+            .filter((contact: any) => contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))
+            .map((contact: any) => contact.email);
+          
+          if (validEmailContacts.length > 0) {
+            recipients.push(...validEmailContacts);
+          } else {
+            // No email contacts found, use default email
+            recipients.push('irwansyahmirza60@gmail.com');
+          }
+        }
+        
+        // Get WhatsApp recipients
+        if (whatsappSettings.enabled) {
+          const validWhatsAppContacts = contacts
+            .filter((contact: any) => contact.whatsapp && /^\d{8,15}$/.test(contact.whatsapp))
+            .map((contact: any) => contact.whatsapp);
+          
+          if (validWhatsAppContacts.length > 0) {
+            recipients.push(...validWhatsAppContacts);
+          } else {
+            // No WhatsApp contacts found, use default WhatsApp
+            recipients.push('6285720153141');
+          }
+        }
+        
         // Remove any existing reminder for this vehicle and triggerDate
         const existing = reminderService.getReminderConfigs().find(
           r => r.type === 'service' && r.vehicle === platNomor && r.triggerDate === triggerDate
         );
+        
         if (!existing) {
           reminderService.addReminderConfig({
             title,
@@ -779,7 +815,7 @@ const MaintenanceManagement = () => {
             triggerDate,
             daysBeforeAlert: [30, 14, 7, 1],
             channels: ['email', 'whatsapp'],
-            recipients: [adminEmail],
+            recipients,
             messageTemplate: `Kendaraan {vehicle} perlu service {service} pada {date}.`,
             isRecurring: false,
             status: 'active'
@@ -787,7 +823,7 @@ const MaintenanceManagement = () => {
         } else {
           reminderService.updateReminderConfig(existing.id, {
             title,
-            recipients: [adminEmail],
+            recipients,
             status: 'active',
             messageTemplate: `Kendaraan {vehicle} perlu service {service} pada {date}.`
           });

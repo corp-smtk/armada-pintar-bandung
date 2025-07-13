@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Bell, Plus, Settings, Mail, MessageCircle, Calendar, AlertTriangle, AlertCircle, CheckCircle, Save, Users, FileText, Play, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -264,41 +264,42 @@ const ReminderManagement = () => {
     setDeliveryLogs(reminderService.getDeliveryLogs());
   };
 
-  const predefinedTemplates = [
+  // Predefined templates optimized for Email and WhatsApp
+  const quickTemplates = [
     {
       type: 'service',
       title: 'Service Rutin',
       description: 'Reminder untuk jadwal service berkala',
       defaultDays: [30, 14, 7, 1],
-      messageTemplate: 'Kendaraan {vehicle} perlu service dalam {days} hari. Jadwal: {date}'
+      messageTemplate: 'Halo, kendaraan {vehicle} perlu service dalam {days} hari.\n\nJadwal service: {date}\n\nMohon persiapkan kendaraan untuk service rutin. Terima kasih.\n\n- Tim Fleet Management'
     },
     {
       type: 'document_stnk',
       title: 'STNK Kadaluarsa',
       description: 'Reminder perpanjangan STNK',
       defaultDays: [60, 30, 14, 7],
-      messageTemplate: 'STNK kendaraan {vehicle} akan kadaluarsa dalam {days} hari. Tanggal: {date}'
+      messageTemplate: 'Perhatian! STNK kendaraan {vehicle} akan kadaluarsa dalam {days} hari.\n\nTanggal kadaluarsa: {date}\n\nSegera lakukan perpanjangan STNK untuk menghindari masalah hukum.\n\n- Tim Fleet Management'
     },
     {
       type: 'document_kir',
       title: 'KIR Kadaluarsa',
       description: 'Reminder perpanjangan KIR',
       defaultDays: [45, 30, 15, 7],
-      messageTemplate: 'KIR kendaraan {vehicle} akan kadaluarsa dalam {days} hari. Tanggal: {date}'
+      messageTemplate: 'Penting! KIR kendaraan {vehicle} akan kadaluarsa dalam {days} hari.\n\nTanggal kadaluarsa: {date}\n\nSegera urus perpanjangan KIR sebelum masa berlaku habis.\n\n- Tim Fleet Management'
     },
     {
       type: 'insurance',
       title: 'Asuransi Kadaluarsa',
       description: 'Reminder perpanjangan asuransi',
       defaultDays: [60, 30, 14, 7],
-      messageTemplate: 'Asuransi kendaraan {vehicle} akan kadaluarsa dalam {days} hari. Tanggal: {date}'
+      messageTemplate: 'Reminder asuransi kendaraan {vehicle} akan berakhir dalam {days} hari.\n\nTanggal berakhir: {date}\n\nHarap segera perpanjang asuransi untuk perlindungan optimal.\n\n- Tim Fleet Management'
     },
     {
       type: 'custom',
       title: 'Custom Reminder',
       description: 'Reminder kustom sesuai kebutuhan',
       defaultDays: [30, 14, 7],
-      messageTemplate: 'Reminder: {title} untuk kendaraan {vehicle} dalam {days} hari'
+      messageTemplate: 'Reminder: {title}\n\nKendaraan: {vehicle}\nTenggat waktu: dalam {days} hari ({date})\n\nMohon segera ditindaklanjuti.\n\n- Tim Fleet Management'
     }
   ];
 
@@ -322,6 +323,8 @@ const ReminderManagement = () => {
   };
 
   const CreateReminderForm = () => {
+    console.log('🔥 [DEBUG] CreateReminderForm RENDER');
+    
     const { toast } = useToast();
     const reminderService = useReminderService();
     const [recipientsText, setRecipientsText] = useState('');
@@ -336,11 +339,22 @@ const ReminderManagement = () => {
       daysBeforeAlert: [] as number[],
       channels: [] as string[],
       recipients: [] as string[],
-      messageTemplate: '',
+      selectedTemplateId: '', // Store template ID instead of manual template
       isRecurring: false,
       recurringInterval: '1',
       recurringUnit: 'month' as 'week' | 'month' | 'year'
     });
+    
+    console.log('🔥 [DEBUG] Current FormData State:', formData);
+
+    // Monitor formData.selectedTemplateId changes
+    useEffect(() => {
+      console.log('🔥 [DEBUG] useEffect triggered - selectedTemplateId changed to:', formData.selectedTemplateId);
+      if (formData.selectedTemplateId) {
+        const template = quickTemplates.find(t => t.type === formData.selectedTemplateId);
+        console.log('🔥 [DEBUG] useEffect - Found template for selectedTemplateId:', template);
+      }
+    }, [formData.selectedTemplateId]);
 
     // Validation functions
     const validateForm = () => {
@@ -351,8 +365,8 @@ const ReminderManagement = () => {
       if (!formData.vehicle) errors.push('Kendaraan harus dipilih');
       if (!formData.triggerDate) errors.push('Tanggal target harus diisi');
       if (formData.channels.length === 0) errors.push('Minimal pilih satu channel notifikasi');
-      if (recipientsText.trim() === '') errors.push('Penerima harus diisi');
-      if (!formData.messageTemplate.trim()) errors.push('Template pesan harus diisi');
+      if (recipientsText.trim() === '' && selectedEmailContacts.length === 0) errors.push('Penerima harus diisi');
+      if (!formData.selectedTemplateId) errors.push('Template harus dipilih');
       if (formData.daysBeforeAlert.length === 0) errors.push('Pilih minimal satu hari untuk reminder');
       
       // Date validation
@@ -371,24 +385,27 @@ const ReminderManagement = () => {
         const recipients = recipientsText.split(',').map(r => r.trim()).filter(r => r);
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const telegramRegex = /^@[a-zA-Z0-9_]{5,}$/;
+        const whatsappRegex = /^\d{8,15}$/;
         
         for (const recipient of recipients) {
-          if (formData.channels.includes('email') && !emailRegex.test(recipient) && !recipient.startsWith('@')) {
+          // Email validation
+          if (formData.channels.includes('email') && !emailRegex.test(recipient) && !recipient.startsWith('@') && !whatsappRegex.test(recipient)) {
             errors.push(`Format email tidak valid: ${recipient}`);
           }
-          if (formData.channels.includes('telegram') && !telegramRegex.test(recipient) && recipient.includes('@')) {
+          // WhatsApp validation  
+          if (formData.channels.includes('whatsapp') && !whatsappRegex.test(recipient) && !emailRegex.test(recipient) && !recipient.startsWith('@')) {
+            errors.push(`Format nomor WhatsApp tidak valid: ${recipient} (gunakan format kode negara, contoh: 6281234567890)`);
+          }
+          // Telegram validation
+          if (formData.channels.includes('telegram') && !telegramRegex.test(recipient) && !emailRegex.test(recipient) && !whatsappRegex.test(recipient)) {
             errors.push(`Format username Telegram tidak valid: ${recipient} (harus @username)`);
           }
         }
       }
       
-      // Template variables validation
-      const requiredVariables = ['{vehicle}', '{days}', '{date}'];
-      const missingVariables = requiredVariables.filter(variable => 
-        !formData.messageTemplate.includes(variable)
-      );
-      if (missingVariables.length > 0) {
-        errors.push(`Template pesan harus mengandung: ${missingVariables.join(', ')}`);
+      // Template selection validation
+      if (formData.selectedTemplateId && !quickTemplates.find(t => t.type === formData.selectedTemplateId)) {
+        errors.push('Template yang dipilih tidak valid');
       }
       
       setValidationErrors(errors);
@@ -396,20 +413,130 @@ const ReminderManagement = () => {
     };
 
     const handleTemplateSelect = (templateType: string) => {
-      const template = predefinedTemplates.find(t => t.type === templateType);
+      console.log('🔥 [DEBUG] Template Selection Started:', templateType);
+      
+      const template = quickTemplates.find(t => t.type === templateType);
+      console.log('🔥 [DEBUG] Found Template:', template);
+      
       if (template) {
-        setFormData({
-          ...formData,
-          type: template.type,
-          title: template.title,
-          daysBeforeAlert: template.defaultDays,
-          messageTemplate: template.messageTemplate
+        // Update multiple state pieces separately to ensure they all trigger
+        console.log('🔥 [DEBUG] Updating selectedTemplateId from:', formData.selectedTemplateId, 'to:', template.type);
+        
+        setFormData(prev => {
+          const newFormData = {
+            ...prev,
+            type: template.type,
+            title: template.title,
+            daysBeforeAlert: template.defaultDays,
+            selectedTemplateId: template.type
+          };
+          
+          console.log('🔥 [DEBUG] FormData State Update:');
+          console.log('  - Old:', prev);
+          console.log('  - New:', newFormData);
+          console.log('  - selectedTemplateId changed:', prev.selectedTemplateId, '->', newFormData.selectedTemplateId);
+          
+          return newFormData;
         });
+        
         // Clear validation errors when template changes
         setValidationErrors([]);
+        
+        // Show immediate feedback
+        toast({
+          title: "Template Dipilih",
+          description: `Template "${template.title}" berhasil dipilih. Preview akan diperbarui.`,
+        });
+        
+        // Force a re-render by updating selectedTemplate state as well
+        setTimeout(() => {
+          console.log('🔥 [DEBUG] Post-update formData check, selectedTemplateId should be:', template.type);
+        }, 100);
+        
+      } else {
+        console.log('🔥 [DEBUG] Template not found for type:', templateType);
       }
+      
       setSelectedTemplate(templateType);
+      console.log('🔥 [DEBUG] Selected template state set to:', templateType);
     };
+
+    // Generate preview message based on selected template and form data
+    const previewMessage = useMemo(() => {
+      console.log('🔥 [DEBUG] Preview Message Generation Started');
+      console.log('🔥 [DEBUG] FormData.selectedTemplateId:', formData.selectedTemplateId);
+      console.log('🔥 [DEBUG] FormData.vehicle:', formData.vehicle);
+      console.log('🔥 [DEBUG] FormData.title:', formData.title);
+      console.log('🔥 [DEBUG] FormData.triggerDate:', formData.triggerDate);
+      console.log('🔥 [DEBUG] FormData.document:', formData.document);
+      
+      const selectedTemplateObj = quickTemplates.find(t => t.type === formData.selectedTemplateId);
+      console.log('🔥 [DEBUG] Selected Template Object:', selectedTemplateObj);
+      
+      if (!selectedTemplateObj) {
+        console.log('🔥 [DEBUG] No template selected, returning placeholder');
+        return 'Pilih template untuk melihat preview pesan...';
+      }
+
+      // Use actual data if available, otherwise use placeholders
+      const vehicle = formData.vehicle || '[Kendaraan]';
+      const title = formData.title || selectedTemplateObj.title;
+      const document = formData.document || 'dokumen';
+      
+      let targetDate, daysUntilTarget;
+      if (formData.triggerDate) {
+        targetDate = new Date(formData.triggerDate);
+        const today = new Date();
+        daysUntilTarget = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      } else {
+        // Use placeholder date (30 days from now)
+        targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + 30);
+        daysUntilTarget = 30;
+      }
+      
+      const today = new Date();
+      
+      let message = selectedTemplateObj.messageTemplate
+        .replace('{vehicle}', vehicle)
+        .replace('{title}', title)
+        .replace('{date}', targetDate.toLocaleDateString('id-ID'))
+        .replace('{days}', daysUntilTarget.toString())
+        .replace('{document}', document)
+        .replace('{company}', 'PT. Armada Pintar')
+        .replace('{today}', today.toLocaleDateString('id-ID'));
+
+      console.log('🔥 [DEBUG] Generated Preview Message:', message);
+      return message;
+    }, [formData.selectedTemplateId, formData.vehicle, formData.title, formData.triggerDate, formData.document]);
+
+    // Generate channel-specific preview messages
+    const emailPreview = useMemo(() => {
+      if (!formData.channels.includes('email')) return '';
+      return previewMessage;
+    }, [previewMessage, formData.channels]);
+
+    const whatsappPreview = useMemo(() => {
+      if (!formData.channels.includes('whatsapp')) return '';
+      
+      let message = previewMessage;
+      
+      // Add WhatsApp-specific formatting
+      message = `🚗 ${message}`;
+      
+      // Add urgency if close to deadline
+      if (formData.triggerDate) {
+        const targetDate = new Date(formData.triggerDate);
+        const today = new Date();
+        const daysUntilTarget = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilTarget <= 7) {
+          message = `⚠️ URGENT - ${message}`;
+        }
+      }
+      
+      return message;
+    }, [previewMessage, formData.channels, formData.triggerDate]);
 
     const handleSubmit = async () => {
       if (!validateForm()) {
@@ -428,17 +555,24 @@ const ReminderManagement = () => {
           ? selectedEmailContacts
           : recipientsText.split(',').map(r => r.trim()).filter(r => r);
         
+        // Get the selected template and generate message
+        const selectedTemplateObj = quickTemplates.find(t => t.type === formData.selectedTemplateId);
+        const messageTemplate = selectedTemplateObj ? selectedTemplateObj.messageTemplate : '';
+        
         const reminderConfig = {
           ...formData,
           recipients,
-          status: 'active' as const
+          messageTemplate,
+          status: 'active' as const,
+          createdBy: 'user', // Tag as user-created
+          createdAt: new Date().toISOString()
         };
 
         const newReminder = reminderService.addReminderConfig(reminderConfig);
         
         toast({
-          title: "Reminder Created",
-          description: `Reminder "${formData.title}" berhasil dibuat`,
+          title: "Reminder Berhasil Dibuat",
+          description: `Reminder "${formData.title}" berhasil dibuat dan akan aktif sesuai jadwal`,
         });
 
         // Reset form
@@ -451,7 +585,7 @@ const ReminderManagement = () => {
           daysBeforeAlert: [],
           channels: [],
           recipients: [],
-          messageTemplate: '',
+          selectedTemplateId: '',
           isRecurring: false,
           recurringInterval: '1',
           recurringUnit: 'month'
@@ -474,14 +608,7 @@ const ReminderManagement = () => {
     };
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Buat Reminder Baru
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <div className="space-y-6">
           {/* Validation Errors */}
           {validationErrors.length > 0 && (
             <Alert variant="destructive">
@@ -498,24 +625,56 @@ const ReminderManagement = () => {
           )}
 
           {/* Template Selection */}
-          <div className="space-y-2">
-            <Label>Pilih Template</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {predefinedTemplates.map((template) => (
-                <div
-                  key={template.type}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedTemplate === template.type
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => handleTemplateSelect(template.type)}
-                >
-                  <h4 className="font-semibold text-sm">{template.title}</h4>
-                  <p className="text-xs text-gray-600 mt-1">{template.description}</p>
-                </div>
-              ))}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="font-medium">Pilih Template *</Label>
+              {formData.selectedTemplateId && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  ✓ {quickTemplates.find(t => t.type === formData.selectedTemplateId)?.title}
+                </Badge>
+              )}
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {quickTemplates.map((template) => {
+                const isSelected = formData.selectedTemplateId === template.type;
+                console.log(`🔥 [DEBUG] Template "${template.type}" - isSelected:`, isSelected, 'formData.selectedTemplateId:', formData.selectedTemplateId);
+                
+                return (
+                  <div
+                    key={template.type}
+                    className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                    }`}
+                    onClick={() => {
+                      console.log('🔥 [DEBUG] Template clicked:', template.type);
+                      handleTemplateSelect(template.type);
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm">{template.title}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{template.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {template.defaultDays.map(day => (
+                            <span key={day} className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                              {day}d
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle className="h-5 w-5 text-blue-600 shrink-0" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500">
+              💡 Template akan otomatis disesuaikan untuk channel Email dan WhatsApp
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -524,13 +683,16 @@ const ReminderManagement = () => {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Masukkan judul reminder"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle">Kendaraan *</Label>
-              <Select onValueChange={(value) => setFormData({ ...formData, vehicle: value })}>
+              <Select 
+                value={formData.vehicle} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, vehicle: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kendaraan" />
                 </SelectTrigger>
@@ -544,7 +706,10 @@ const ReminderManagement = () => {
             {(selectedTemplate.includes('document') || selectedTemplate === 'insurance') && (
               <div className="space-y-2">
                 <Label htmlFor="document">Jenis Dokumen</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, document: value })}>
+                <Select 
+                  value={formData.document}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, document: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih dokumen" />
                   </SelectTrigger>
@@ -563,7 +728,7 @@ const ReminderManagement = () => {
                 id="triggerDate"
                 type="date"
                 value={formData.triggerDate}
-                onChange={(e) => setFormData({ ...formData, triggerDate: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, triggerDate: e.target.value }))}
               />
             </div>
           </div>
@@ -579,15 +744,15 @@ const ReminderManagement = () => {
                     checked={formData.daysBeforeAlert.includes(day)}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setFormData({
-                          ...formData,
-                          daysBeforeAlert: [...formData.daysBeforeAlert, day].sort((a, b) => b - a)
-                        });
+                        setFormData(prev => ({
+                          ...prev,
+                          daysBeforeAlert: [...prev.daysBeforeAlert, day].sort((a, b) => b - a)
+                        }));
                       } else {
-                        setFormData({
-                          ...formData,
-                          daysBeforeAlert: formData.daysBeforeAlert.filter(d => d !== day)
-                        });
+                        setFormData(prev => ({
+                          ...prev,
+                          daysBeforeAlert: prev.daysBeforeAlert.filter(d => d !== day)
+                        }));
                       }
                     }}
                     className="rounded"
@@ -601,16 +766,16 @@ const ReminderManagement = () => {
           {/* Notification Channels */}
           <div className="space-y-2">
             <Label>Channel Notifikasi</Label>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={formData.channels.includes('email')}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setFormData({ ...formData, channels: [...formData.channels, 'email'] });
+                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'email'] }));
                     } else {
-                      setFormData({ ...formData, channels: formData.channels.filter(c => c !== 'email') });
+                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'email') }));
                     }
                   }}
                   className="rounded"
@@ -621,17 +786,33 @@ const ReminderManagement = () => {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={formData.channels.includes('telegram')}
+                  checked={formData.channels.includes('whatsapp')}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setFormData({ ...formData, channels: [...formData.channels, 'telegram'] });
+                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'whatsapp'] }));
                     } else {
-                      setFormData({ ...formData, channels: formData.channels.filter(c => c !== 'telegram') });
+                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'whatsapp') }));
                     }
                   }}
                   className="rounded"
                 />
-                <MessageCircle className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm">WhatsApp</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={formData.channels.includes('telegram')}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setFormData(prev => ({ ...prev, channels: [...prev.channels, 'telegram'] }));
+                    } else {
+                      setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'telegram') }));
+                    }
+                  }}
+                  className="rounded"
+                />
+                <MessageCircle className="h-4 w-4 text-blue-500" />
                 <span className="text-sm">Telegram</span>
               </label>
             </div>
@@ -640,17 +821,49 @@ const ReminderManagement = () => {
           {/* Recipients */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="recipients">Penerima (Email/Telegram Username) *</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTargetingManager(true)}
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Manage Contacts
-              </Button>
+              <Label htmlFor="recipients">Penerima *</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Auto-select contacts from the Kontak tab
+                    const contactEmails = contacts.map((c: any) => c.email);
+                    const contactWhatsApp = contacts.map((c: any) => c.whatsapp);
+                    
+                    let selectedRecipients = [];
+                    if (formData.channels.includes('email')) {
+                      selectedRecipients.push(...contactEmails);
+                    }
+                    if (formData.channels.includes('whatsapp')) {
+                      selectedRecipients.push(...contactWhatsApp);
+                    }
+                    
+                    setSelectedEmailContacts(selectedRecipients);
+                    setRecipientsText('');
+                    
+                    toast({
+                      title: "Kontak Dipilih",
+                      description: `${selectedRecipients.length} kontak dari tab Kontak berhasil dipilih`,
+                    });
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Gunakan Kontak
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTargetingManager(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Kelola
+                </Button>
+              </div>
             </div>
             <Textarea
               id="recipients"
@@ -660,53 +873,163 @@ const ReminderManagement = () => {
                   setRecipientsText(e.target.value);
                 }
               }}
-              placeholder="Masukkan email atau username telegram, pisahkan dengan koma"
+              placeholder="Masukkan email, nomor WhatsApp, atau username telegram. Pisahkan dengan koma. Atau gunakan tombol 'Gunakan Kontak' untuk memilih dari kontak yang tersimpan."
               className="min-h-[80px]"
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                Contoh: admin@company.com, @fleetmanager, driver@company.com
+                Contoh: admin@company.com, 6281234567890, @fleetmanager
               </p>
               {selectedEmailContacts.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  {selectedEmailContacts.length} contacts selected
+                  {selectedEmailContacts.length} kontak dipilih
                 </Badge>
               )}
             </div>
+            {contacts.length > 0 && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-700 font-medium">
+                  💡 Ada {contacts.length} kontak tersimpan di tab Kontak. Klik "Gunakan Kontak" untuk memilih otomatis.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Message Template */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="messageTemplate">Template Pesan</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTemplateManager(true)}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Browse Templates
-              </Button>
+          {/* Preview Pesan yang Akan Dikirim */}
+          <div className="space-y-3">
+            <Label>Preview Pesan yang Akan Dikirim</Label>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="space-y-3">
+                {/* Debug Info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="bg-red-100 border border-red-300 rounded p-2 text-xs">
+                    <strong>🔥 DEBUG:</strong><br/>
+                    selectedTemplateId: {formData.selectedTemplateId || 'null'}<br/>
+                    previewMessage length: {previewMessage.length}<br/>
+                    previewMessage: {previewMessage.substring(0, 50)}...<br/>
+                    <button 
+                      onClick={() => {
+                        console.log('🔥 [DEBUG] Manual Template Test - Current formData:', formData);
+                        console.log('🔥 [DEBUG] Manual Template Test - Available templates:', quickTemplates.map(t => t.type));
+                        console.log('🔥 [DEBUG] Manual Template Test - Current previewMessage:', previewMessage);
+                      }}
+                      className="mt-2 px-2 py-1 bg-red-500 text-white rounded text-xs"
+                    >
+                      Log Debug Info
+                    </button>
+                  </div>
+                )}
+                
+                {/* Konfigurasi Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Template:</span>
+                    <span className="text-gray-900">
+                      {(() => {
+                        console.log('🔥 [DEBUG] Template Summary - selectedTemplateId:', formData.selectedTemplateId);
+                        const foundTemplate = quickTemplates.find(t => t.type === formData.selectedTemplateId);
+                        console.log('🔥 [DEBUG] Template Summary - foundTemplate:', foundTemplate);
+                        return formData.selectedTemplateId ? 
+                          foundTemplate?.title || 'Unknown' 
+                          : 'Belum dipilih';
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Channel:</span>
+                    <span className="text-gray-900">
+                      {formData.channels.length > 0 ? formData.channels.join(', ') : 'Belum dipilih'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Kendaraan:</span>
+                    <span className="text-gray-900">{formData.vehicle || 'Belum dipilih'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Tanggal Target:</span>
+                    <span className="text-gray-900">
+                      {formData.triggerDate ? new Date(formData.triggerDate).toLocaleDateString('id-ID') : 'Belum dipilih'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Hari Alert:</span>
+                    <span className="text-gray-900">
+                      {formData.daysBeforeAlert.length > 0 ? 
+                        formData.daysBeforeAlert.sort((a, b) => b - a).join(', ') + ' hari sebelumnya' 
+                        : 'Belum dipilih'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Penerima:</span>
+                    <span className="text-gray-900">
+                      {selectedEmailContacts.length > 0 ? 
+                        `${selectedEmailContacts.length} kontak` : 
+                        recipientsText ? `${recipientsText.split(',').length} penerima` : 'Belum diisi'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Divider */}
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-600 text-sm">Preview Pesan:</span>
+                    {formData.channels.length > 0 && (
+                      <div className="flex gap-1">
+                        {formData.channels.includes('email') && (
+                          <Badge variant="outline" className="text-xs">
+                            <Mail className="h-3 w-3 mr-1" />
+                            Email
+                          </Badge>
+                        )}
+                        {formData.channels.includes('whatsapp') && (
+                          <Badge variant="outline" className="text-xs">
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            WhatsApp
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Email Preview */}
+                  {formData.channels.includes('email') && (
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-500 mb-1">📧 Email Version:</div>
+                      <div className="p-3 bg-white border rounded text-sm">
+                        <pre className="whitespace-pre-wrap font-sans text-gray-800">
+                          {emailPreview}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* WhatsApp Preview */}
+                  {formData.channels.includes('whatsapp') && (
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-500 mb-1">📱 WhatsApp Version:</div>
+                      <div className="p-3 bg-green-50 border border-green-200 rounded text-sm">
+                        <pre className="whitespace-pre-wrap font-sans text-gray-800">
+                          {whatsappPreview}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Default preview if no channels selected */}
+                  {formData.channels.length === 0 && (
+                    <div className="p-3 bg-gray-50 border rounded text-sm">
+                      <pre className="whitespace-pre-wrap font-sans text-gray-600">
+                        {previewMessage}
+                      </pre>
+                      <p className="text-xs text-gray-500 mt-2">Pilih channel notifikasi untuk melihat preview yang disesuaikan</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <Textarea
-              id="messageTemplate"
-              value={formData.messageTemplate}
-              onChange={(e) => setFormData({ ...formData, messageTemplate: e.target.value })}
-              placeholder="Template pesan reminder"
-              className="min-h-[100px]"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                Gunakan placeholder: {'{vehicle}'}, {'{days}'}, {'{date}'}, {'{title}'}
-              </p>
-              {selectedTemplate && (
-                <Badge variant="secondary" className="text-xs">
-                  Using: {selectedTemplate}
-                </Badge>
-              )}
-            </div>
+            <p className="text-xs text-gray-500">
+              💡 Preview ini akan dikirim kepada penerima sesuai channel dan jadwal yang dipilih
+            </p>
           </div>
 
           {/* Recurring Options */}
@@ -715,7 +1038,7 @@ const ReminderManagement = () => {
               <Switch
                 id="recurring"
                 checked={formData.isRecurring}
-                onCheckedChange={(checked) => setFormData({ ...formData, isRecurring: checked })}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: checked }))}
               />
               <Label htmlFor="recurring">Reminder Berulang</Label>
             </div>
@@ -724,13 +1047,13 @@ const ReminderManagement = () => {
                 <Input
                   type="number"
                   value={formData.recurringInterval}
-                  onChange={(e) => setFormData({ ...formData, recurringInterval: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, recurringInterval: e.target.value }))}
                   className="w-20"
                   min="1"
                 />
                 <Select
                   value={formData.recurringUnit}
-                  onValueChange={(value) => setFormData({ ...formData, recurringUnit: value })}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurringUnit: value }))}
                 >
                   <SelectTrigger className="w-32">
                     <SelectValue />
@@ -769,7 +1092,7 @@ const ReminderManagement = () => {
               onClick={() => {
                 setShowCreateForm(false);
                 setValidationErrors([]);
-                setFormData({
+                setFormData(prev => ({
                   title: '',
                   type: '',
                   vehicle: '',
@@ -778,11 +1101,11 @@ const ReminderManagement = () => {
                   daysBeforeAlert: [],
                   channels: [],
                   recipients: [],
-                  messageTemplate: '',
+                  selectedTemplateId: '',
                   isRecurring: false,
                   recurringInterval: '1',
                   recurringUnit: 'month'
-                });
+                }));
                 setRecipientsText('');
                 setSelectedEmailContacts([]);
                 setSelectedTemplate('');
@@ -792,46 +1115,15 @@ const ReminderManagement = () => {
               Batal
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
     );
   };
 
-  // Targeting Manager Dialog
-  if (showTargetingManager) {
-    return (
-      <EmailTargetingManager
-        selectedContacts={selectedEmailContacts}
-        onContactsChange={(contacts) => {
-          setSelectedEmailContacts(contacts);
-          setRecipientsText(''); // Clear manual text when using contact manager
-        }}
-        onClose={() => setShowTargetingManager(false)}
-      />
-    );
-  }
+  // Targeting Manager Dialog - Removed early return to fix modal issues
 
-  // Template Manager Dialog
-  if (showTemplateManager) {
-    return (
-      <EmailTemplateManager
-        selectedTemplate={selectedTemplate}
-        onTemplateSelect={(template) => {
-          setFormData({ 
-            ...formData, 
-            messageTemplate: template.content 
-          });
-          setSelectedTemplate(template.name);
-          setShowTemplateManager(false);
-        }}
-        onClose={() => setShowTemplateManager(false)}
-      />
-    );
-  }
+  // Template Manager Dialog - Removed early return to fix modal issues
 
-  if (showSettings) {
-    return <ReminderSettings onBack={() => setShowSettings(false)} />;
-  }
+  // Settings Dialog - Removed early return to fix modal issues
 
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6">
@@ -955,7 +1247,10 @@ const ReminderManagement = () => {
                 <span className="hidden sm:inline">Log Pengiriman</span>
                 <span className="sm:hidden">Log</span>
               </TabsTrigger>
-              <TabsTrigger value="templates" className="text-xs sm:text-sm p-2 sm:p-3">Template</TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs sm:text-sm p-2 sm:p-3">
+                <span className="hidden sm:inline">Template Manager</span>
+                <span className="sm:hidden">Template</span>
+              </TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs sm:text-sm p-2 sm:p-3">Kontak</TabsTrigger>
             </TabsList>
             
@@ -993,7 +1288,21 @@ const ReminderManagement = () => {
                             key={reminder.id}
                             title={reminder.title}
                             subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
-                            status={<Badge variant="outline">Queued</Badge>}
+                            status={
+                              <div className="flex gap-1">
+                                <Badge variant="outline">Queued</Badge>
+                                {reminder.createdBy === 'user' && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                                    User
+                                  </Badge>
+                                )}
+                                {reminder.createdBy === 'system' && (
+                                  <Badge variant="outline" className="border-green-200 text-green-700 text-xs">
+                                    Auto
+                                  </Badge>
+                                )}
+                              </div>
+                            }
                           >
                             <div className="flex justify-between items-start gap-3">
                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
@@ -1031,7 +1340,21 @@ const ReminderManagement = () => {
                             key={`wa-${reminder.id}`}
                             title={reminder.title}
                             subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
-                            status={<Badge variant="outline">Queued</Badge>}
+                            status={
+                              <div className="flex gap-1">
+                                <Badge variant="outline">Queued</Badge>
+                                {reminder.createdBy === 'user' && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                                    User
+                                  </Badge>
+                                )}
+                                {reminder.createdBy === 'system' && (
+                                  <Badge variant="outline" className="border-green-200 text-green-700 text-xs">
+                                    Auto
+                                  </Badge>
+                                )}
+                              </div>
+                            }
                           >
                             <div className="flex justify-between items-start gap-3">
                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
@@ -1069,7 +1392,21 @@ const ReminderManagement = () => {
                             key={`tg-${reminder.id}`}
                             title={reminder.title}
                             subtitle={`Penerima: ${reminder.recipients.join(', ')}`}
-                            status={<Badge variant="outline">Queued</Badge>}
+                            status={
+                              <div className="flex gap-1">
+                                <Badge variant="outline">Queued</Badge>
+                                {reminder.createdBy === 'user' && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                                    User
+                                  </Badge>
+                                )}
+                                {reminder.createdBy === 'system' && (
+                                  <Badge variant="outline" className="border-green-200 text-green-700 text-xs">
+                                    Auto
+                                  </Badge>
+                                )}
+                              </div>
+                            }
                           >
                             <div className="flex justify-between items-start gap-3">
                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis:</span>
@@ -1113,9 +1450,21 @@ const ReminderManagement = () => {
                               </div>
                             </div>
                             <div className="flex flex-col sm:items-end gap-2 sm:gap-3 shrink-0">
-                              <Badge className={getStatusBadge(reminder.status)}>
-                                {reminder.status}
-                              </Badge>
+                              <div className="flex flex-wrap gap-1 sm:justify-end">
+                                <Badge className={getStatusBadge(reminder.status)}>
+                                  {reminder.status}
+                                </Badge>
+                                {reminder.createdBy === 'user' && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                    User Created
+                                  </Badge>
+                                )}
+                                {reminder.createdBy === 'system' && (
+                                  <Badge variant="outline" className="border-green-200 text-green-700">
+                                    Auto Generated
+                                  </Badge>
+                                )}
+                              </div>
                               <div className="text-sm text-gray-600 sm:text-right">
                                 Kirim berikutnya: {reminder.nextSend}
                               </div>
@@ -1206,40 +1555,18 @@ const ReminderManagement = () => {
               </TabsContent>
 
               <TabsContent value="templates" className="mt-0">
-                <div className="space-y-3 sm:space-y-4">
-                  {predefinedTemplates.map((template) => (
-                    <Card key={template.type} className="shadow-sm hover:shadow-md transition-shadow">
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-base sm:text-lg text-gray-900 mb-2">{template.title}</h3>
-                            <p className="text-sm text-gray-600 mb-3">{template.description}</p>
-                            <div className="space-y-2">
-                              <p className="text-xs text-gray-500">
-                                <span className="font-medium">Default alert days:</span> {template.defaultDays.join(', ')} hari sebelumnya
-                              </p>
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 mb-1 font-medium">Template Message:</p>
-                                <p className="text-xs text-gray-700 font-mono leading-relaxed">
-                                  {template.messageTemplate}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="shrink-0">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="min-h-[40px] w-full sm:w-auto"
-                            >
-                              Edit Template
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <EmailTemplateManager 
+                  selectedTemplate={selectedTemplate}
+                  onTemplateSelect={(template) => {
+                    // This is used when browsing templates in the reminder creation flow
+                    // For the standalone template tab, we don't need to do anything special
+                    console.log('Template selected:', template.name);
+                    toast({
+                      title: "Template Info",
+                      description: `Template "${template.name}" dapat digunakan saat membuat reminder baru.`,
+                    });
+                  }}
+                />
               </TabsContent>
 
               <TabsContent value="contacts" className="mt-0">
@@ -1384,7 +1711,16 @@ const ReminderManagement = () => {
       </ResponsiveModal>
 
       {/* Other modals with responsive design */}
-      {showCreateForm && <CreateReminderForm />}
+      {showCreateForm && (
+        <ResponsiveModal
+          open={showCreateForm}
+          onOpenChange={setShowCreateForm}
+          title="Buat Reminder Baru"
+          size="lg"
+        >
+          <CreateReminderForm />
+        </ResponsiveModal>
+      )}
       {showSettings && (
         <ResponsiveModal
           open={showSettings}
@@ -1392,19 +1728,10 @@ const ReminderManagement = () => {
           title="Pengaturan Reminder"
           size="lg"
         >
-          <ReminderSettings />
+          <ReminderSettings onBack={() => setShowSettings(false)} />
         </ResponsiveModal>
       )}
-      {showTemplateManager && (
-        <ResponsiveModal
-          open={showTemplateManager}
-          onOpenChange={setShowTemplateManager}
-          title="Manajemen Template"
-          size="xl"
-        >
-          <EmailTemplateManager />
-        </ResponsiveModal>
-      )}
+
       {showTargetingManager && (
         <ResponsiveModal
           open={showTargetingManager}
@@ -1412,7 +1739,37 @@ const ReminderManagement = () => {
           title="Manajemen Target Email"
           size="lg"
         >
-          <EmailTargetingManager />
+          <EmailTargetingManager
+            selectedContacts={selectedEmailContacts}
+            onContactsChange={(contacts) => {
+              setSelectedEmailContacts(contacts);
+              setRecipientsText(''); // Clear manual text when using contact manager
+            }}
+            onClose={() => setShowTargetingManager(false)}
+          />
+        </ResponsiveModal>
+      )}
+
+      {/* Template Manager Modal - Fixed to preserve form data */}
+      {showTemplateManager && (
+        <ResponsiveModal
+          open={showTemplateManager}
+          onOpenChange={setShowTemplateManager}
+          title="Browse Templates"
+          size="lg"
+        >
+          <EmailTemplateManager
+            selectedTemplate={selectedTemplate}
+            onTemplateSelect={(template) => {
+              setFormData({ 
+                ...formData, 
+                messageTemplate: template.content 
+              });
+              setSelectedTemplate(template.name);
+              setShowTemplateManager(false);
+            }}
+            onClose={() => setShowTemplateManager(false)}
+          />
         </ResponsiveModal>
       )}
     </div>

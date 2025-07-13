@@ -1,6 +1,6 @@
 
 import { ReactNode } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -11,6 +11,7 @@ interface ResponsiveDialogProps {
   children: ReactNode;
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  description?: string;
 }
 
 export const ResponsiveDialog = ({ 
@@ -19,7 +20,8 @@ export const ResponsiveDialog = ({
   title, 
   children, 
   className = '',
-  size = 'md'
+  size = 'md',
+  description
 }: ResponsiveDialogProps) => {
   const isMobile = useIsMobile();
 
@@ -61,6 +63,9 @@ export const ResponsiveDialog = ({
           <DialogTitle className="text-xl font-semibold">
             {title}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {description || `${title} dialog`}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {children}
@@ -80,6 +85,7 @@ interface ResponsiveModalProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
+  description?: string;
 }
 
 export const ResponsiveModal = ({ 
@@ -90,7 +96,8 @@ export const ResponsiveModal = ({
   footer,
   className = '',
   size = 'md',
-  showCloseButton = true
+  showCloseButton = true,
+  description
 }: ResponsiveModalProps) => {
   const isMobile = useIsMobile();
 
@@ -138,6 +145,9 @@ export const ResponsiveModal = ({
           <DialogTitle className="text-xl font-semibold">
             {title}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {description || `${title} modal`}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto space-y-4">
