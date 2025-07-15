@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { autoConfigService } from "@/services/AutoConfigService";
 import { automatedSchedulerService } from "@/services/AutomatedSchedulerService";
+import ReminderSettingsPage from './pages/ReminderSettingsPage';
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/reminder-settings" element={<ReminderSettingsPage />} />
             <Route path="/" element={<Index />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

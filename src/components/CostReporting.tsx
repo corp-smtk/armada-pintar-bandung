@@ -362,26 +362,26 @@ const CostReporting = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-blue-500 min-h-[140px] flex flex-col justify-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Biaya Operasional</CardTitle>
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+          <CardContent className="flex flex-col justify-center flex-1">
+            <div className="text-2xl font-bold text-blue-600 leading-tight flex items-end h-10">
               Rp {totalOperationalCost.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">total tercatat</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 min-h-[140px] flex flex-col justify-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Biaya Bahan Bakar</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="flex flex-col justify-center flex-1">
+            <div className="text-2xl font-bold text-green-600 leading-tight flex items-end h-10">
               Rp {fuelCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
@@ -390,13 +390,13 @@ const CostReporting = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-l-4 border-l-orange-500 min-h-[140px] flex flex-col justify-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Biaya Tol</CardTitle>
             <FileBarChart className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent className="flex flex-col justify-center flex-1">
+            <div className="text-2xl font-bold text-orange-600 leading-tight flex items-end h-10">
               Rp {tollCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
@@ -405,13 +405,13 @@ const CostReporting = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-purple-500">
+        <Card className="border-l-4 border-l-purple-500 min-h-[140px] flex flex-col justify-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Biaya Lainnya</CardTitle>
             <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+          <CardContent className="flex flex-col justify-center flex-1">
+            <div className="text-2xl font-bold text-purple-600 leading-tight flex items-end h-10">
               Rp {otherCosts.toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-gray-500">
